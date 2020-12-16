@@ -18,7 +18,7 @@ impl GameObject for WorldGrid {
         let mut verticies = vec![];
         for x in 0..self.dim.x {
             for y in 0..self.dim.y {
-                let pos = Vector3::new(x as f32, y as f32, -1.0);
+                let pos = Vector3::new(x as f32, y as f32, 0.0);
                 //first traigne
                 verticies.push(Vector3::new(0.0, 0.0, 0.0) + pos);
                 verticies.push(Vector3::new(1.0, 1.0, 0.0) + pos);

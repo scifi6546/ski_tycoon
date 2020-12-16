@@ -2,40 +2,61 @@ mod camera;
 mod game;
 mod utils;
 use camera::Camera;
-use js_sys::{Array as JsArray, Object as JsObject,Map as JsMap};
+use js_sys::{Array as JsArray, Map as JsMap, Object as JsObject};
 use nalgebra::{Matrix4, Perspective3, Vector2, Vector3};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::{WebGlProgram, WebGlRenderingContext, WebGlShader};
-pub enum MouseButton{
+pub fn log(s: &str) {
+    web_sys::console::log(&JsArray::from(&JsValue::from(s)));
+}
+#[derive(PartialEq)]
+pub enum MouseButton {
     LeftClick,
     MiddleClick,
     RightClick,
 }
-pub enum Event{
-    MouseMove{
-        delta_x:f32,
-        delta_y:f32,
-        buttons_pressed:Vec<MouseButton>,
-    }
+pub enum Event {
+    MouseMove {
+        delta_x: f32,
+        delta_y: f32,
+        delta_time_ms: f32,
+        buttons_pressed: Vec<MouseButton>,
+    },
 }
-impl Event{
-    pub fn from_map(map:JsMap)->Self{
-        let buttons_pressed_number:i32 = map.get(&JsValue::from_str("buttons")).as_f64().unwrap() as i32;
-        let buttons_pressed = match buttons_pressed_number{
-            0=>vec![],
-            1=>vec![MouseButton::LeftClick],
-            2=>vec![MouseButton::RightClick],
-            3=>vec![MouseButton::LeftClick,MouseButton::RightClick],
-            4=>vec![MouseButton::MiddleClick],
-            5=>vec![MouseButton::LeftClick,MouseButton::MiddleClick],
-            6=>vec![MouseButton::MiddleClick,MouseButton::RightClick],
-            7=>vec![MouseButton::LeftClick,MouseButton::MiddleClick,MouseButton::RightClick],
-            _=>panic!("invalid button number")
-
+impl Event {
+    pub fn from_map(map: JsMap) -> Self {
+        let buttons_pressed_number: i32 =
+            map.get(&JsValue::from_str("buttons")).as_f64().unwrap() as i32;
+        let buttons_pressed = match buttons_pressed_number {
+            0 => vec![],
+            1 => vec![MouseButton::LeftClick],
+            2 => vec![MouseButton::RightClick],
+            3 => vec![MouseButton::LeftClick, MouseButton::RightClick],
+            4 => vec![MouseButton::MiddleClick],
+            5 => vec![MouseButton::LeftClick, MouseButton::MiddleClick],
+            6 => vec![MouseButton::MiddleClick, MouseButton::RightClick],
+            7 => vec![
+                MouseButton::LeftClick,
+                MouseButton::MiddleClick,
+                MouseButton::RightClick,
+            ],
+            _ => panic!("invalid button number"),
         };
-        
-        todo!()}
+        let delta_x = map.get(&JsValue::from_str("delta_x")).as_f64().unwrap() as f32;
+        let delta_y = map.get(&JsValue::from_str("delta_y")).as_f64().unwrap() as f32;
+        log(&format!("delta_x: {} delta_y: {}", delta_x, delta_y));
+        let delta_time_ms = map
+            .get(&JsValue::from_str("delta_time_ms"))
+            .as_f64()
+            .unwrap() as f32;
+        Event::MouseMove {
+            delta_x,
+            delta_y,
+            buttons_pressed,
+            delta_time_ms,
+        }
+    }
 }
 #[wasm_bindgen]
 pub struct GraphicsContext {
@@ -95,7 +116,26 @@ impl GraphicsContext {
         self.gl_context.delete_buffer(Some(&buffer));
         Ok(())
     }
-    pub fn render_frame(&self,events:Vec<Event>) -> Result<(), JsValue> {
+    pub fn process_events(&mut self, events: &Vec<Event>) {
+        for event in events {
+            match event {
+                Event::MouseMove {
+                    delta_x,
+                    delta_y,
+                    buttons_pressed,
+                    delta_time_ms,
+                } => {
+                    if buttons_pressed.contains(&MouseButton::RightClick) {
+                        log(&format!("contains delta_x:{} delta_y:{}", delta_x, delta_y));
+                        self.camera.rotate_phi(delta_x * delta_time_ms * 0.0001);
+                        self.camera.rotate_theta(delta_y * delta_time_ms * 0.0001);
+                    }
+                }
+            }
+        }
+    }
+    pub fn render_frame(&mut self, events: Vec<Event>) -> Result<(), JsValue> {
+        self.process_events(&events);
         let camera_uniform = self
             .gl_context
             .get_uniform_location(&self.program, "camera");
@@ -151,7 +191,7 @@ pub fn start() -> Result<GraphicsContext, JsValue> {
     Ok(GraphicsContext {
         gl_context: context,
         program,
-        camera: Camera::new(Vector3::new(0.0, 0.0, 0.0), 1.0, 0.0, 0.0),
+        camera: Camera::new(Vector3::new(0.0, 0.0, 0.0), 3.0, 0.0, 0.0),
         game_objects: vec![Box::new(game::WorldGrid::new(Vector2::new(10, 10)))],
     })
 }
@@ -216,8 +256,8 @@ extern "C" {
     fn alert(s: &str);
 }
 #[wasm_bindgen]
-pub fn render_frame(context: &GraphicsContext, events: JsArray) {
-    let events = events.iter().map(|v|Event::from_map(v.into())).collect();
+pub fn render_frame(context: &mut GraphicsContext, events: JsArray) {
+    let events = events.iter().map(|v| Event::from_map(v.into())).collect();
     context.render_frame(events).ok().unwrap();
 }
 #[wasm_bindgen]
