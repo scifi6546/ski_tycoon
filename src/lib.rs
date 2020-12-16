@@ -2,12 +2,41 @@ mod camera;
 mod game;
 mod utils;
 use camera::Camera;
-use js_sys::{Array as JsArray, Object as JsObject};
+use js_sys::{Array as JsArray, Object as JsObject,Map as JsMap};
 use nalgebra::{Matrix4, Perspective3, Vector2, Vector3};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::{WebGlProgram, WebGlRenderingContext, WebGlShader};
+pub enum MouseButton{
+    LeftClick,
+    MiddleClick,
+    RightClick,
+}
+pub enum Event{
+    MouseMove{
+        delta_x:f32,
+        delta_y:f32,
+        buttons_pressed:Vec<MouseButton>,
+    }
+}
+impl Event{
+    pub fn from_map(map:JsMap)->Self{
+        let buttons_pressed_number:i32 = map.get(&JsValue::from_str("buttons")).as_f64().unwrap() as i32;
+        let buttons_pressed = match buttons_pressed_number{
+            0=>vec![],
+            1=>vec![MouseButton::LeftClick],
+            2=>vec![MouseButton::RightClick],
+            3=>vec![MouseButton::LeftClick,MouseButton::RightClick],
+            4=>vec![MouseButton::MiddleClick],
+            5=>vec![MouseButton::LeftClick,MouseButton::MiddleClick],
+            6=>vec![MouseButton::MiddleClick,MouseButton::RightClick],
+            7=>vec![MouseButton::LeftClick,MouseButton::MiddleClick,MouseButton::RightClick],
+            _=>panic!("invalid button number")
 
+        };
+        
+        todo!()}
+}
 #[wasm_bindgen]
 pub struct GraphicsContext {
     game_objects: Vec<Box<dyn game::GameObject>>,
@@ -66,7 +95,7 @@ impl GraphicsContext {
         self.gl_context.delete_buffer(Some(&buffer));
         Ok(())
     }
-    pub fn render_frame(&self) -> Result<(), JsValue> {
+    pub fn render_frame(&self,events:Vec<Event>) -> Result<(), JsValue> {
         let camera_uniform = self
             .gl_context
             .get_uniform_location(&self.program, "camera");
@@ -188,7 +217,8 @@ extern "C" {
 }
 #[wasm_bindgen]
 pub fn render_frame(context: &GraphicsContext, events: JsArray) {
-    context.render_frame().ok().unwrap();
+    let events = events.iter().map(|v|Event::from_map(v.into())).collect();
+    context.render_frame(events).ok().unwrap();
 }
 #[wasm_bindgen]
 pub fn init_game() -> GraphicsContext {
