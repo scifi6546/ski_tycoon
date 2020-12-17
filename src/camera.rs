@@ -34,10 +34,7 @@ impl Camera {
                 (-1.0 * self.phi).sin() * self.theta.cos(),
             );
         //log(&format!("phi: {}, theta: {} radius: {}", self.phi, self.theta,self.radius));
-        log(&format!(
-            "delta position: {} origin: {}",
-            delta_position, self.origin
-        ));
+       
 
         Matrix4::new_perspective(1.0, 3.14 / 4.0, 0.1, 1000.0)
             * Matrix4::face_towards(
