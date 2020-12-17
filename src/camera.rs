@@ -31,18 +31,21 @@ impl Camera {
             * Vector3::new(
                 self.phi.cos() * self.theta.cos(),
                 self.theta.sin(),
-                (-1.0*self.phi).sin() * self.theta.cos(),
+                (-1.0 * self.phi).sin() * self.theta.cos(),
             );
         //log(&format!("phi: {}, theta: {} radius: {}", self.phi, self.theta,self.radius));
-        log(&format!("delta position: {} origin: {}",delta_position,self.origin));
+        log(&format!(
+            "delta position: {} origin: {}",
+            delta_position, self.origin
+        ));
 
-        Matrix4::new_translation(&(1.0*(delta_position + self.origin)))
-             *Matrix4::face_towards(&Point::from(delta_position),
+        Matrix4::new_perspective(1.0, 3.14 / 4.0, 0.1, 1000.0)
+            * Matrix4::face_towards(
+                &Point::from(delta_position),
                 &Point::from(self.origin),
-                
                 &Vector3::new(0.0, 1.0, 0.0),
             )
-            * Matrix4::new_perspective(1.0, 3.14 / 4.0, 0.1, 1000.0)
+            * Matrix4::new_translation(&(-1.0 * (delta_position + self.origin)))
         //log(&format!("{}",mat));
         //mat
     }

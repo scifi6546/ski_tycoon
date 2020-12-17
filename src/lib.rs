@@ -126,7 +126,7 @@ impl GraphicsContext {
                     delta_time_ms,
                 } => {
                     if buttons_pressed.contains(&MouseButton::RightClick) {
-                        log(&format!("contains delta_x:{} delta_y:{}", delta_x, delta_y));
+                        
                         self.camera.rotate_phi(delta_x * delta_time_ms * 0.0001);
                         self.camera.rotate_theta(delta_y * delta_time_ms * 0.0001);
                     }
@@ -151,7 +151,11 @@ impl GraphicsContext {
         for m in model.iter() {
             self.render_model(m)?;
         }
-
+        let e = self.gl_context.get_error();
+        if e!=0{
+            log(&(format!("error: {}",e)));
+            panic!();
+        }
         Ok(())
     }
 }
@@ -170,10 +174,10 @@ pub fn start() -> Result<GraphicsContext, JsValue> {
         &context,
         WebGlRenderingContext::VERTEX_SHADER,
         r#"
-        attribute vec4 position;
+        attribute vec3 position;
         uniform mat4 camera;
         void main() {
-            gl_Position = camera*position;
+            gl_Position = camera*vec4(position,1.0);
         }
     "#,
     )?;
@@ -191,7 +195,7 @@ pub fn start() -> Result<GraphicsContext, JsValue> {
     Ok(GraphicsContext {
         gl_context: context,
         program,
-        camera: Camera::new(Vector3::new(0.0, 0.0, 0.0), 3.0, 0.0, 0.0),
+        camera: Camera::new(Vector3::new(0.0, 0.0, 0.0), 30.0, 0.0, -3.14/4.0),
         game_objects: vec![Box::new(game::WorldGrid::new(Vector2::new(10, 10)))],
     })
 }
