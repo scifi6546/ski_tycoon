@@ -1,5 +1,5 @@
 use super::log;
-use super::RenderModel;
+use super::{RenderModel,RenderTransform};
 use nalgebra::{Vector2, Vector3};
 pub struct Model {
     pub vertices: Vec<Vector3<f32>>,
@@ -7,7 +7,7 @@ pub struct Model {
 pub trait GameObject {
     fn get_model(&self) -> Model;
     fn is_initilized(&self) -> bool;
-    fn get_render_model(&self) -> Option<RenderModel>;
+    fn get_render_model(&self) -> (Option<RenderModel>,RenderTransform);
     fn submit_render_model(&mut self, model: RenderModel);
 }
 pub struct WorldGrid {
@@ -44,8 +44,8 @@ impl GameObject for WorldGrid {
     fn is_initilized(&self) -> bool {
         self.model.is_some()
     }
-    fn get_render_model(&self) -> Option<RenderModel> {
-        self.model.clone()
+    fn get_render_model(&self) ->(Option<RenderModel>,RenderTransform) {
+        (self.model.clone(),RenderTransform::new_scale(&Vector3::new(1.0,1.0,1.0)))
     }
     fn submit_render_model(&mut self, model: RenderModel) {
         self.model = Some(model);
@@ -66,9 +66,8 @@ impl<Actor: ActorBehavior> GameObject for SimpleActor<Actor> {
     fn is_initilized(&self) -> bool {
         self.render_model.is_some()
     }
-    fn get_render_model(&self) -> Option<RenderModel> {
-        self.actor.get_render_transform();
-        self.render_model.clone()
+    fn get_render_model(&self) ->(Option<RenderModel>,RenderTransform) {
+        (self.render_model.clone(), self.actor.get_render_transform())
     }
 }
 impl<Actor: ActorBehavior> SimpleActor<Actor> {
@@ -82,7 +81,7 @@ impl<Actor: ActorBehavior> SimpleActor<Actor> {
 trait ActorBehavior {
     fn get_model(&self) -> Model;
     // Type todo. Will get the render transform every frame
-    fn get_render_transform(&self) -> ();
+    fn get_render_transform(&self) -> RenderTransform;
 }
 pub struct Skiier {}
 impl Skiier {
@@ -144,7 +143,7 @@ impl ActorBehavior for Skiier {
         ];
         Model { vertices }
     }
-    fn get_render_transform(&self) -> () {
-        ()
+    fn get_render_transform(&self) -> RenderTransform {
+        RenderTransform::new_scale(&Vector3::new(0.1,0.1,0.1))
     }
 }

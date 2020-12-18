@@ -3,7 +3,7 @@ mod game;
 mod utils;
 use camera::Camera;
 use js_sys::{Array as JsArray, Map as JsMap};
-use nalgebra::{Vector2, Vector3};
+use nalgebra::{Vector2, Vector3,Matrix4};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::{
@@ -23,6 +23,17 @@ pub struct RenderModel {
     vertex_array_object: Option<WebGlVertexArrayObject>,
     position_buffer: Option<WebGlBuffer>,
     count: i32,
+}
+#[derive(Clone, Debug)]
+pub struct RenderTransform{
+    matrix:Matrix4<f32>
+}
+impl RenderTransform{
+    pub fn new_scale(scale:&Vector3<f32>)->Self{
+        Self{
+            matrix:Matrix4::new_nonuniform_scaling(scale)
+        }
+    }
 }
 pub enum Event {
     MouseMove {
@@ -97,7 +108,15 @@ pub struct GraphicsContext {
     position_attribute_location: i32,
 }
 impl GraphicsContext {
-    fn render_model(&self, model: &RenderModel) -> Result<(), JsValue> {
+    fn render_model(&self, model: &RenderModel,transform: &RenderTransform) -> Result<(), JsValue> {
+        let model_uniform = self
+        .gl_context
+        .get_uniform_location(&self.program,"model");
+        self.gl_context.uniform_matrix4fv_with_f32_array(
+        model_uniform.as_ref(),
+        false,
+        transform.matrix.as_slice());
+
         self.gl_context
             .bind_vertex_array(model.vertex_array_object.as_ref());
         self.gl_context
@@ -186,13 +205,13 @@ impl GraphicsContext {
         self.gl_context.clear_color(0.0, 0.0, 0.0, 1.0);
         self.gl_context
             .clear(WebGl2RenderingContext::COLOR_BUFFER_BIT);
-        let model: Vec<RenderModel> = self
+        let model: Vec<(RenderModel,RenderTransform)> = self
             .game_objects
             .iter()
-            .map(|o| o.get_render_model().unwrap())
+            .map(|o|{let (m,t) = o.get_render_model();(m.unwrap(),t)})
             .collect();
-        for m in model.iter() {
-            self.render_model(m)?;
+        for (model,transform) in model.iter() {
+            self.render_model(model,transform)?;
         }
         let e = self.gl_context.get_error();
         if e != 0 {
@@ -217,8 +236,9 @@ pub fn start() -> Result<GraphicsContext, JsValue> {
         r#"#version 300 es
         in vec3 position;
         uniform mat4 camera;
+        uniform mat4 model;
         void main() {
-            gl_Position = camera*vec4(position,1.0);
+            gl_Position = camera*model*vec4(position,1.0);
         }
     "#,
     )?;
