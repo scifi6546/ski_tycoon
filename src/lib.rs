@@ -6,7 +6,9 @@ use js_sys::{Array as JsArray, Map as JsMap};
 use nalgebra::{Vector2, Vector3};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
-use web_sys::{WebGlProgram, WebGl2RenderingContext, WebGlShader,WebGlVertexArrayObject,WebGlBuffer};
+use web_sys::{
+    WebGl2RenderingContext, WebGlBuffer, WebGlProgram, WebGlShader, WebGlVertexArrayObject,
+};
 pub fn log(s: &str) {
     web_sys::console::log(&JsArray::from(&JsValue::from(s)));
 }
@@ -16,11 +18,11 @@ pub enum MouseButton {
     MiddleClick,
     RightClick,
 }
-#[derive(Clone,Debug)]
-pub struct RenderModel{
+#[derive(Clone, Debug)]
+pub struct RenderModel {
     vertex_array_object: Option<WebGlVertexArrayObject>,
     position_buffer: Option<WebGlBuffer>,
-    count:i32,
+    count: i32,
 }
 pub enum Event {
     MouseMove {
@@ -29,9 +31,32 @@ pub enum Event {
         delta_time_ms: f32,
         buttons_pressed: Vec<MouseButton>,
     },
+    Scroll {
+        delta_y: f32,
+        delta_time_ms: f32,
+    },
 }
 impl Event {
     pub fn from_map(map: JsMap) -> Self {
+        let name: String = map.get(&JsValue::from_str("name")).as_string().unwrap();
+        match name.as_str() {
+            "mouse_move" => Self::from_mouse_move_map(map),
+            "wheel" => Self::from_wheel_map(map),
+            _ => panic!("invalid name"),
+        }
+    }
+    pub fn from_wheel_map(map: JsMap) -> Self {
+        let delta_y = map.get(&JsValue::from_str("delta_y")).as_f64().unwrap() as f32;
+        let delta_time_ms = map
+            .get(&JsValue::from_str("delta_time_ms"))
+            .as_f64()
+            .unwrap() as f32;
+        Event::Scroll {
+            delta_y,
+            delta_time_ms,
+        }
+    }
+    pub fn from_mouse_move_map(map: JsMap) -> Self {
         let buttons_pressed_number: i32 =
             map.get(&JsValue::from_str("buttons")).as_f64().unwrap() as i32;
         let buttons_pressed = match buttons_pressed_number {
@@ -51,7 +76,6 @@ impl Event {
         };
         let delta_x = map.get(&JsValue::from_str("delta_x")).as_f64().unwrap() as f32;
         let delta_y = map.get(&JsValue::from_str("delta_y")).as_f64().unwrap() as f32;
-        log(&format!("delta_x: {} delta_y: {}", delta_x, delta_y));
         let delta_time_ms = map
             .get(&JsValue::from_str("delta_time_ms"))
             .as_f64()
@@ -74,17 +98,22 @@ pub struct GraphicsContext {
 }
 impl GraphicsContext {
     fn render_model(&self, model: &RenderModel) -> Result<(), JsValue> {
-       self.gl_context.bind_vertex_array(model.vertex_array_object.as_ref());
-       self.gl_context.draw_arrays(WebGl2RenderingContext::TRIANGLES,0,model.count);
+        self.gl_context
+            .bind_vertex_array(model.vertex_array_object.as_ref());
+        self.gl_context
+            .draw_arrays(WebGl2RenderingContext::TRIANGLES, 0, model.count);
         Ok(())
     }
-    fn init_models(&mut self){
-        for object in self.game_objects.iter_mut(){
+    fn init_models(&mut self) {
+        for object in self.game_objects.iter_mut() {
             let model = object.get_model();
             let position_buffer = self.gl_context.create_buffer();
             let mut array: Vec<f32> = vec![];
-            
-            self.gl_context.bind_buffer(WebGl2RenderingContext::ARRAY_BUFFER,(&position_buffer).as_ref());
+
+            self.gl_context.bind_buffer(
+                WebGl2RenderingContext::ARRAY_BUFFER,
+                (&position_buffer).as_ref(),
+            );
             for v in model.vertices.iter() {
                 array.push(v.x);
                 array.push(v.y);
@@ -95,7 +124,7 @@ impl GraphicsContext {
             // `WebAssembly.Memory` buffer, but if we allocate more pages for ourself
             // (aka do a memory allocation in Rust) it'll cause the buffer to change,
             // causing the `Float32Array` to be invalid.
-            unsafe{
+            unsafe {
                 let vert_array = js_sys::Float32Array::view(&array);
 
                 self.gl_context.buffer_data_with_array_buffer_view(
@@ -106,9 +135,21 @@ impl GraphicsContext {
             }
             let vao = self.gl_context.create_vertex_array();
             self.gl_context.bind_vertex_array(vao.as_ref());
-            self.gl_context.enable_vertex_attrib_array(self.position_attribute_location as u32);
-            self.gl_context.vertex_attrib_pointer_with_f64(self.position_attribute_location as u32,2,WebGl2RenderingContext::FLOAT,false,0,0.0);
-            object.submit_render_model(RenderModel{ vertex_array_object: vao,count:model.vertices.len() as i32,position_buffer});
+            self.gl_context
+                .enable_vertex_attrib_array(self.position_attribute_location as u32);
+            self.gl_context.vertex_attrib_pointer_with_f64(
+                self.position_attribute_location as u32,
+                3,
+                WebGl2RenderingContext::FLOAT,
+                false,
+                0,
+                0.0,
+            );
+            object.submit_render_model(RenderModel {
+                vertex_array_object: vao,
+                count: model.vertices.len() as i32,
+                position_buffer,
+            });
         }
     }
     pub fn process_events(&mut self, events: &Vec<Event>) {
@@ -121,11 +162,14 @@ impl GraphicsContext {
                     delta_time_ms,
                 } => {
                     if buttons_pressed.contains(&MouseButton::RightClick) {
-                        
                         self.camera.rotate_phi(delta_x * delta_time_ms * 0.0001);
                         self.camera.rotate_theta(delta_y * delta_time_ms * 0.0001);
                     }
                 }
+                Event::Scroll {
+                    delta_y,
+                    delta_time_ms,
+                } => self.camera.update_radius(delta_y * delta_time_ms * 0.0001),
             }
         }
     }
@@ -142,13 +186,17 @@ impl GraphicsContext {
         self.gl_context.clear_color(0.0, 0.0, 0.0, 1.0);
         self.gl_context
             .clear(WebGl2RenderingContext::COLOR_BUFFER_BIT);
-        let model: Vec<RenderModel> = self.game_objects.iter().map(|o| o.get_render_model().unwrap()).collect();
+        let model: Vec<RenderModel> = self
+            .game_objects
+            .iter()
+            .map(|o| o.get_render_model().unwrap())
+            .collect();
         for m in model.iter() {
             self.render_model(m)?;
         }
         let e = self.gl_context.get_error();
-        if e!=0{
-            log(&(format!("error: {}",e)));
+        if e != 0 {
+            log(&(format!("error: {}", e)));
             panic!();
         }
         Ok(())
@@ -187,12 +235,12 @@ pub fn start() -> Result<GraphicsContext, JsValue> {
     )?;
     let program = link_program(&context, &vert_shader, &frag_shader)?;
     context.use_program(Some(&program));
-    let  position_attribute_location = context.get_attrib_location(&program,"position");
+    let position_attribute_location = context.get_attrib_location(&program, "position");
     let mut g = GraphicsContext {
         gl_context: context,
         program,
         position_attribute_location,
-        camera: Camera::new(Vector3::new(0.0, 0.0, 0.0), 30.0, 0.0, -3.14/4.0),
+        camera: Camera::new(Vector3::new(0.0, 0.0, 0.0), 40.0, 0.0, 0.0),
         game_objects: vec![Box::new(game::WorldGrid::new(Vector2::new(10, 10)))],
     };
     g.init_models();
@@ -254,7 +302,6 @@ pub fn link_program(
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
-
 #[wasm_bindgen]
 pub fn render_frame(context: &mut GraphicsContext, events: JsArray) {
     let events = events.iter().map(|v| Event::from_map(v.into())).collect();
@@ -263,12 +310,10 @@ pub fn render_frame(context: &mut GraphicsContext, events: JsArray) {
 #[wasm_bindgen]
 pub fn init_game() -> GraphicsContext {
     let r = start();
-    if r.is_ok(){
+    if r.is_ok() {
         r.ok().unwrap()
-    }else{
-       log(&format!("{:?}",r.err().unwrap()));
-       panic!()
-
+    } else {
+        log(&format!("{:?}", r.err().unwrap()));
+        panic!()
     }
-
 }
