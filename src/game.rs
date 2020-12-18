@@ -51,3 +51,100 @@ impl GameObject for WorldGrid {
         self.model = Some(model);
     }
 }
+/// Used for a simple Actor that moves in the game world
+struct SimpleActor<Actor: ActorBehavior> {
+    actor: Actor,
+    render_model: Option<RenderModel>,
+}
+impl<Actor: ActorBehavior> GameObject for SimpleActor<Actor> {
+    fn get_model(&self) -> Model {
+        self.actor.get_model()
+    }
+    fn submit_render_model(&mut self, model: RenderModel) {
+        self.render_model = Some(model);
+    }
+    fn is_initilized(&self) -> bool {
+        self.render_model.is_some()
+    }
+    fn get_render_model(&self) -> Option<RenderModel> {
+        self.actor.get_render_transform();
+        self.render_model.clone()
+    }
+}
+impl<Actor: ActorBehavior> SimpleActor<Actor> {
+    pub fn new(actor: Actor) -> Self {
+        Self {
+            actor,
+            render_model: None,
+        }
+    }
+}
+trait ActorBehavior {
+    fn get_model(&self) -> Model;
+    // Type todo. Will get the render transform every frame
+    fn get_render_transform(&self) -> ();
+}
+pub struct Skiier {}
+impl Skiier {
+    pub fn new() ->Box<dyn GameObject>{
+        Box::new(SimpleActor::new(Self {}))
+    }
+}
+impl ActorBehavior for Skiier {
+    fn get_model(&self) -> Model {
+        let vertices = vec![
+            Vector3::new(-1.0,-1.0,1.0),
+            Vector3::new(1.0,1.0,1.0),
+            Vector3::new(1.0,-1.0,1.0),
+            //second triangle
+            Vector3::new(-1.0,-1.0,1.0),
+            Vector3::new(-1.0,1.0,1.0),
+            Vector3::new(1.0,1.0,1.0),
+            //third triangle
+            Vector3::new(1.0,-1.0,1.0),
+            Vector3::new(1.0,1.0,-1.0),
+            Vector3::new(1.0,-1.0,-1.0),
+            //fourth triangle
+            Vector3::new(1.0,-1.0,1.0),
+            Vector3::new(1.0,1.0,1.0),
+            Vector3::new(1.0,1.0,-1.0),
+            //fith triangle
+            Vector3::new(1.0,-1.0,-1.0),
+            Vector3::new(-1.0,-1.0,-1.0),
+            Vector3::new(1.0,1.0,-1.0),
+            //sixth triangle
+            Vector3::new(-1.0,-1.0,-1.0),
+            Vector3::new(-1.0,1.0,-1.0),
+            Vector3::new(1.0,1.0,-1.0),
+            //seventh triangle
+            Vector3::new(-1.0,-1.0,-1.0),
+            Vector3::new(-1.0,-1.0,1.0),
+            Vector3::new(-1.0,1.0,1.0),
+            //eighth triangle
+            Vector3::new(-1.0,-1.0,-1.0),
+            Vector3::new(-1.0,1.0,1.0),
+            Vector3::new(-1.0,1.0,-1.0),
+            //9th triangle
+            Vector3::new(1.0,1.0,1.0),
+            Vector3::new(1.0,1.0,-1.0),
+            Vector3::new(-1.0,1.0,-1.0),
+            //10th triangle
+            Vector3::new(1.0,1.0,1.0),
+            Vector3::new(-1.0,1.0,-1.0),
+            Vector3::new(-1.0,1.0,1.0),
+            //11th triangle
+            Vector3::new(1.0,-1.0,1.0),
+            Vector3::new(-1.0,-1.0,1.0),
+            Vector3::new(-1.0,-1.0,-1.0),
+            //12th triangle
+            Vector3::new(1.0,-1.0,1.0),
+            Vector3::new(-1.0,-1.0,-1.0),
+            Vector3::new(1.0,-1.0,-1.0),
+
+        ];
+        Model { vertices }
+    }
+    fn get_render_transform(&self) -> () {
+        ()
+    }
+}

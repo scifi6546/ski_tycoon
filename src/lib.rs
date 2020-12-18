@@ -241,7 +241,7 @@ pub fn start() -> Result<GraphicsContext, JsValue> {
         program,
         position_attribute_location,
         camera: Camera::new(Vector3::new(0.0, 0.0, 0.0), 40.0, 0.0, 0.0),
-        game_objects: vec![Box::new(game::WorldGrid::new(Vector2::new(10, 10)))],
+        game_objects: vec![Box::new(game::WorldGrid::new(Vector2::new(10, 10))),game::Skiier::new()],
     };
     g.init_models();
     Ok(g)
