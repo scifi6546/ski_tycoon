@@ -106,6 +106,7 @@ pub struct GraphicsContext {
     program: WebGlProgram,
     camera: Camera,
     position_attribute_location: i32,
+    uv_attribute_location:i32,
 }
 impl GraphicsContext {
     fn render_model(&self, model: &RenderModel,transform: &RenderTransform) -> Result<(), JsValue> {
@@ -133,10 +134,12 @@ impl GraphicsContext {
                 WebGl2RenderingContext::ARRAY_BUFFER,
                 (&position_buffer).as_ref(),
             );
-            for v in model.vertices.iter() {
-                array.push(v.x);
-                array.push(v.y);
-                array.push(v.z);
+            for (vertex,uv) in model.vertices.iter() {
+                array.push(vertex.x);
+                array.push(vertex.y);
+                array.push(vertex.z);
+                array.push(uv.x);
+                array.push(uv.y);
             }
             //  Note that `Float32Array::view` is somewhat dangerous (hence the
             // `unsafe`!). This is creating a raw view into our module's
@@ -156,13 +159,23 @@ impl GraphicsContext {
             self.gl_context.bind_vertex_array(vao.as_ref());
             self.gl_context
                 .enable_vertex_attrib_array(self.position_attribute_location as u32);
+            self.gl_context.enable_vertex_attrib_array(self.uv_attribute_location as u32);
             self.gl_context.vertex_attrib_pointer_with_f64(
                 self.position_attribute_location as u32,
                 3,
                 WebGl2RenderingContext::FLOAT,
                 false,
-                0,
+                5*std::mem::size_of::<f32>() as i32,
                 0.0,
+            );
+            self.gl_context.vertex_attrib_pointer_with_i32(
+                self.uv_attribute_location as u32,
+                2,
+                WebGl2RenderingContext::FLOAT,
+                false,
+                5*std::mem::size_of::<f32>() as i32,
+                3
+
             );
             object.submit_render_model(RenderModel {
                 vertex_array_object: vao,
@@ -235,6 +248,8 @@ pub fn start() -> Result<GraphicsContext, JsValue> {
         WebGl2RenderingContext::VERTEX_SHADER,
         r#"#version 300 es
         in vec3 position;
+        in vec2 uv;
+        out vec2 o_uv;
         uniform mat4 camera;
         uniform mat4 model;
         void main() {
@@ -248,20 +263,23 @@ pub fn start() -> Result<GraphicsContext, JsValue> {
         r#"#version 300 es
         precision highp float;
         out vec4 color;
+        in vec2 o_uv;
         void main() {
-            color = vec4(1.0, 1.0, 1.0, 1.0);
+            color = vec4(o_uv.x, o_uv.y, 1.0, 1.0);
         }
     "#,
     )?;
     let program = link_program(&context, &vert_shader, &frag_shader)?;
     context.use_program(Some(&program));
     let position_attribute_location = context.get_attrib_location(&program, "position");
+    let uv_attribute_location = context.get_attrib_location(&program, "uv");
     let mut g = GraphicsContext {
         gl_context: context,
         program,
         position_attribute_location,
         camera: Camera::new(Vector3::new(0.0, 0.0, 0.0), 40.0, 0.0, 0.0),
         game_objects: vec![Box::new(game::WorldGrid::new(Vector2::new(10, 10))),game::Skiier::new()],
+        uv_attribute_location
     };
     g.init_models();
     Ok(g)

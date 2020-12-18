@@ -1,8 +1,12 @@
 use super::log;
 use super::{RenderModel,RenderTransform};
-use nalgebra::{Vector2, Vector3};
+use nalgebra::{Vector2, Vector3,Vector4};
 pub struct Model {
-    pub vertices: Vec<Vector3<f32>>,
+    pub vertices: Vec<(Vector3<f32>,Vector2<f32>)>,
+}
+pub struct Image{
+    dimensions: Vector2<u32>,
+    data:Vector4<f32>,
 }
 pub trait GameObject {
     fn get_model(&self) -> Model;
@@ -28,13 +32,13 @@ impl GameObject for WorldGrid {
                 let pos = Vector3::new(x as f32, 0.0, y as f32);
                 log(&format!("{}", pos));
                 //first traigne
-                verticies.push(scale * (Vector3::new(0.0, 0.0, 0.0) + pos));
-                verticies.push(scale * (Vector3::new(1.0, 0.0, 1.0) + pos));
-                verticies.push(scale * (Vector3::new(1.0, 0.0, 0.0) + pos));
+                verticies.push((scale * (Vector3::new(0.0, 0.0, 0.0) + pos),Vector2::new(0.0,0.0)));
+                verticies.push((scale * (Vector3::new(1.0, 0.0, 1.0) + pos),Vector2::new(1.0,1.0)));
+                verticies.push((scale * (Vector3::new(1.0, 0.0, 0.0) + pos),Vector2::new(1.0,0.0)));
                 //second triangle
-                verticies.push(scale * (Vector3::new(0.0, 0.0, 0.0) + pos));
-                verticies.push(scale * (Vector3::new(0.0, 0.0, 1.0) + pos));
-                verticies.push(scale * (Vector3::new(1.0, 0.0, 1.0) + pos));
+                verticies.push((scale * (Vector3::new(0.0, 0.0, 0.0) + pos),Vector2::new(0.0,0.0)));
+                verticies.push((scale * (Vector3::new(0.0, 0.0, 1.0) + pos),Vector2::new(0.0,1.0)));
+                verticies.push((scale * (Vector3::new(1.0, 0.0, 1.0) + pos),Vector2::new(1.0,1.0)));
             }
         }
         Model {
@@ -92,53 +96,53 @@ impl Skiier {
 impl ActorBehavior for Skiier {
     fn get_model(&self) -> Model {
         let vertices = vec![
-            Vector3::new(-1.0,-1.0,1.0),
-            Vector3::new(1.0,1.0,1.0),
-            Vector3::new(1.0,-1.0,1.0),
+            (Vector3::new(-1.0,-1.0,1.0),Vector2::new(0.0,0.0)),
+            (Vector3::new(1.0,1.0,1.0),Vector2::new(1.0,1.0)),
+            (Vector3::new(1.0,-1.0,1.0),Vector2::new(1.0,0.0)),
             //second triangle
-            Vector3::new(-1.0,-1.0,1.0),
-            Vector3::new(-1.0,1.0,1.0),
-            Vector3::new(1.0,1.0,1.0),
+            (Vector3::new(-1.0,-1.0,1.0),Vector2::new(0.0,0.0)),
+            (Vector3::new(-1.0,1.0,1.0),Vector2::new(0.0,1.0)),
+            (Vector3::new(1.0,1.0,1.0),Vector2::new(1.0,1.0)),
             //third triangle
-            Vector3::new(1.0,-1.0,1.0),
-            Vector3::new(1.0,1.0,-1.0),
-            Vector3::new(1.0,-1.0,-1.0),
+            (Vector3::new(1.0,-1.0,1.0),Vector2::new(0.0,0.0)),
+            (Vector3::new(1.0,1.0,-1.0),Vector2::new(0.0,1.0)),
+            (Vector3::new(1.0,-1.0,-1.0),Vector2::new(0.0,1.0)),
             //fourth triangle
-            Vector3::new(1.0,-1.0,1.0),
-            Vector3::new(1.0,1.0,1.0),
-            Vector3::new(1.0,1.0,-1.0),
+            (Vector3::new(1.0,-1.0,1.0),Vector2::new(0.0,0.0)),
+            (Vector3::new(1.0,1.0,1.0),Vector2::new(0.0,1.0)),
+            (Vector3::new(1.0,1.0,-1.0),Vector2::new(1.0,1.0)),
             //fith triangle
-            Vector3::new(1.0,-1.0,-1.0),
-            Vector3::new(-1.0,-1.0,-1.0),
-            Vector3::new(1.0,1.0,-1.0),
+            (Vector3::new(1.0,-1.0,-1.0),Vector2::new(0.0,0.0)),
+            (Vector3::new(-1.0,-1.0,-1.0),Vector2::new(1.0,0.0)),
+            (Vector3::new(1.0,1.0,-1.0),Vector2::new(0.0,1.0)),
             //sixth triangle
-            Vector3::new(-1.0,-1.0,-1.0),
-            Vector3::new(-1.0,1.0,-1.0),
-            Vector3::new(1.0,1.0,-1.0),
+            (Vector3::new(-1.0,-1.0,-1.0),Vector2::new(1.0,0.0)),
+            (Vector3::new(-1.0,1.0,-1.0),Vector2::new(1.0,1.0)),
+            (Vector3::new(1.0,1.0,-1.0),Vector2::new(0.0,1.0)),
             //seventh triangle
-            Vector3::new(-1.0,-1.0,-1.0),
-            Vector3::new(-1.0,-1.0,1.0),
-            Vector3::new(-1.0,1.0,1.0),
+            (Vector3::new(-1.0,-1.0,-1.0),Vector2::new(0.0,0.0)),
+            (Vector3::new(-1.0,-1.0,1.0),Vector2::new(1.0,0.0)),
+            (Vector3::new(-1.0,1.0,1.0),Vector2::new(1.0,1.0)),
             //eighth triangle
-            Vector3::new(-1.0,-1.0,-1.0),
-            Vector3::new(-1.0,1.0,1.0),
-            Vector3::new(-1.0,1.0,-1.0),
+            (Vector3::new(-1.0,-1.0,-1.0),Vector2::new(0.0,0.0)),
+            (Vector3::new(-1.0,1.0,1.0),Vector2::new(1.0,1.0)),
+            (Vector3::new(-1.0,1.0,-1.0),Vector2::new(0.0,1.0)),
             //9th triangle
-            Vector3::new(1.0,1.0,1.0),
-            Vector3::new(1.0,1.0,-1.0),
-            Vector3::new(-1.0,1.0,-1.0),
+            (Vector3::new(1.0,1.0,1.0),Vector2::new(0.0,0.0)),
+            (Vector3::new(1.0,1.0,-1.0),Vector2::new(0.0,1.0)),
+            (Vector3::new(-1.0,1.0,-1.0),Vector2::new(1.0,1.0)),
             //10th triangle
-            Vector3::new(1.0,1.0,1.0),
-            Vector3::new(-1.0,1.0,-1.0),
-            Vector3::new(-1.0,1.0,1.0),
+            (Vector3::new(1.0,1.0,1.0),Vector2::new(0.0,0.0)),
+            (Vector3::new(-1.0,1.0,-1.0),Vector2::new(1.0,1.0)),
+            (Vector3::new(-1.0,1.0,1.0),Vector2::new(0.0,1.0)),
             //11th triangle
-            Vector3::new(1.0,-1.0,1.0),
-            Vector3::new(-1.0,-1.0,1.0),
-            Vector3::new(-1.0,-1.0,-1.0),
+            (Vector3::new(1.0,-1.0,1.0),Vector2::new(0.0,0.0)),
+            (Vector3::new(-1.0,-1.0,1.0),Vector2::new(1.0,0.0)),
+            (Vector3::new(-1.0,-1.0,-1.0),Vector2::new(1.0,1.0)),
             //12th triangle
-            Vector3::new(1.0,-1.0,1.0),
-            Vector3::new(-1.0,-1.0,-1.0),
-            Vector3::new(1.0,-1.0,-1.0),
+            (Vector3::new(1.0,-1.0,1.0),Vector2::new(0.0,0.0)),
+            (Vector3::new(-1.0,-1.0,-1.0),Vector2::new(1.0,1.0)),
+            (Vector3::new(1.0,-1.0,-1.0),Vector2::new(0.0,1.0)),
 
         ];
         Model { vertices }
