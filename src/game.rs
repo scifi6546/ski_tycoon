@@ -1,4 +1,3 @@
-use super::log;
 use super::{RenderModel, RenderTransform};
 use nalgebra::{Vector2, Vector3, Vector4};
 pub struct Model {
@@ -7,10 +6,11 @@ pub struct Model {
 }
 pub struct Image {
     pub dimensions: Vector2<u32>,
-    pub data: Vec<Vector3<u8>>,
+    pub data: Vec<Vector4<u8>>,
 }
 impl Image {
-    pub fn constant_color(color: Vector3<u8>, dimensions: Vector2<u32>) -> Self {
+    const NUM_CHANNELS:u32=4;
+    pub fn constant_color(color: Vector4<u8>, dimensions: Vector2<u32>) -> Self {
         let mut data = vec![];
         data.reserve((dimensions.x * dimensions.y) as usize);
         for _x in 0..dimensions.x {
@@ -30,11 +30,10 @@ impl Image {
                 data.push(self.data[(x*self.dimensions.y+y) as usize].x);
                 data.push(self.data[(x*self.dimensions.y+y) as usize].y);
                 data.push(self.data[(x*self.dimensions.y+y) as usize].z);
+                data.push(self.data[(x*self.dimensions.y+y) as usize].w);
             }
         }
-        let s:String = self.data.iter().map(|c|format!("({} {} {})\t",c.x,c.y,c.z)).fold("".to_string(),|acc,s|acc+&s);
-        let s = (0..data.len()/3).map(|i| format!("( {} {} {})\t",data[i*3+0],data[i*3+1],data[i*3+2])).fold("".to_string(),|acc,s|acc+&s);
-        assert_eq!(data.len() as u32,self.dimensions.x*self.dimensions.y*3);
+        assert_eq!(data.len() as u32,self.dimensions.x*self.dimensions.y*Self::NUM_CHANNELS);
         return data;
     }
 }
@@ -91,7 +90,7 @@ impl GameObject for WorldGrid {
         Model {
             vertices: verticies,
             texture: Image::constant_color(
-                Vector3::new(0, 255, 255),
+                Vector4::new(0, 255, 255,255),
                 Vector2::new(8, 8),
             ),
         }
@@ -201,7 +200,7 @@ impl ActorBehavior for Skiier {
         Model {
             vertices,
             texture: Image::constant_color(
-                Vector3::new(255, 0, 0),
+                Vector4::new(255, 0, 0,255),
                 Vector2::new(8, 8),
             ),
         }

@@ -207,7 +207,7 @@ impl GraphicsContext {
                 WebGl2RenderingContext::TEXTURE_2D,
                 level,
                 //  Use RGBA Format
-                WebGl2RenderingContext::RGB as i32,
+                WebGl2RenderingContext::RGBA as i32,
                 //width
                 model.texture.dimensions.x as i32,
                 //height
@@ -215,7 +215,7 @@ impl GraphicsContext {
                 //must be 0 specifies the border
                 0,
                 //  Use RGB Format
-                WebGl2RenderingContext::RGB,
+                WebGl2RenderingContext::RGBA,
                 WebGl2RenderingContext::UNSIGNED_BYTE,
                 model.texture.get_raw_vector().as_slice(),
                 0,
