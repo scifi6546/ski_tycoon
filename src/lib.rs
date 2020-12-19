@@ -4,18 +4,14 @@ mod graphics_engine;
 mod utils;
 use camera::Camera;
 use graphics_engine::GraphicsEngine;
+pub use graphics_engine::{Mesh, RGBATexture};
 use js_sys::{Array as JsArray, Map as JsMap};
-use nalgebra::{Matrix4, Vector2, Vector3,Vector4};
+use nalgebra::{Matrix4, Vector2, Vector3, Vector4};
 use wasm_bindgen::prelude::*;
-use wasm_bindgen::JsCast;
-pub use graphics_engine::{Mesh,RGBATexture};
-use web_sys::{
-    WebGl2RenderingContext, WebGlBuffer, WebGlProgram, WebGlShader, WebGlTexture,
-    WebGlUniformLocation, WebGlVertexArrayObject,
-};
-pub struct Model{
+use web_sys::{WebGlBuffer, WebGlTexture, WebGlVertexArrayObject};
+pub struct Model {
     pub mesh: Mesh,
-    pub texture:  RGBATexture,
+    pub texture: RGBATexture,
 }
 pub fn log(s: &str) {
     web_sys::console::log(&JsArray::from(&JsValue::from(s)));
@@ -112,12 +108,12 @@ impl Event {
     }
 }
 
-pub struct GraphicsContext<E:GraphicsEngine> {
-    game_objects: Vec<Box<dyn game::GameObject<(E::RuntimeMesh,E::RuntimeTexture)>>>,
+pub struct GraphicsContext<E: GraphicsEngine> {
+    game_objects: Vec<Box<dyn game::GameObject<(E::RuntimeMesh, E::RuntimeTexture)>>>,
     camera: Camera,
-    engine: E
+    engine: E,
 }
-impl<E:GraphicsEngine> GraphicsContext<E> {
+impl<E: GraphicsEngine> GraphicsContext<E> {
     pub fn process_events(&mut self, events: &Vec<Event>) {
         for event in events {
             match event {
@@ -141,11 +137,11 @@ impl<E:GraphicsEngine> GraphicsContext<E> {
     }
     pub fn render_frame(&mut self, events: Vec<Event>) -> Result<(), JsValue> {
         self.process_events(&events);
-        self.engine.clear_screen(Vector4::new(0.2,0.2,0.2,1.0));
+        self.engine.clear_screen(Vector4::new(0.2, 0.2, 0.2, 1.0));
         self.engine.send_view_matrix(self.camera.get_mat());
         for object in self.game_objects.iter() {
-            let (model_opt,trans) = object.get_render_model();
-            if let Some((model,texture)) = model_opt{
+            let (model_opt, trans) = object.get_render_model();
+            if let Some((model, texture)) = model_opt {
                 self.engine.send_model_matrix(trans.matrix);
                 self.engine.bind_texture(texture);
                 self.engine.draw_mesh(model);
@@ -153,21 +149,21 @@ impl<E:GraphicsEngine> GraphicsContext<E> {
         }
         Ok(())
     }
-    pub fn init_models(&mut self)->Result<(),E::ErrorType>{
-        for object in self.game_objects.iter_mut(){
+    pub fn init_models(&mut self) -> Result<(), E::ErrorType> {
+        for object in self.game_objects.iter_mut() {
             let model = object.get_model();
             let mesh = self.engine.build_mesh(model.mesh)?;
             let texture = self.engine.build_texture(model.texture)?;
-            object.submit_render_model((mesh,texture));
+            object.submit_render_model((mesh, texture));
         }
         Ok(())
     }
 }
 pub fn start() -> Result<GraphicsContext<graphics_engine::WebGl>, JsValue> {
     let graphics = graphics_engine::WebGl::init()?;
-    
+
     let mut g = GraphicsContext {
-        engine:graphics,
+        engine: graphics,
         camera: Camera::new(Vector3::new(0.0, 0.0, 0.0), 40.0, 0.0, 0.0),
         game_objects: vec![
             Box::new(game::WorldGrid::new(Vector2::new(10, 10))),
@@ -178,16 +174,16 @@ pub fn start() -> Result<GraphicsContext<graphics_engine::WebGl>, JsValue> {
     Ok(g)
 }
 #[wasm_bindgen]
-pub struct WebGame{
+pub struct WebGame {
     engine: GraphicsContext<graphics_engine::WebGl>,
 }
 #[wasm_bindgen]
-impl WebGame{
+impl WebGame {
     #[wasm_bindgen]
-    pub fn render_frame(&mut self,events: JsArray){
+    pub fn render_frame(&mut self, events: JsArray) {
         let events = events.iter().map(|v| Event::from_map(v.into())).collect();
-        
-        self.engine.render_frame(events);
+
+        self.engine.render_frame(events).ok().unwrap();
     }
 }
 // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
@@ -199,10 +195,9 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 pub fn init_game() -> WebGame {
     let r = start();
     if r.is_ok() {
-        WebGame{
-            engine: r.ok().unwrap()
+        WebGame {
+            engine: r.ok().unwrap(),
         }
-        
     } else {
         log(&format!("{:?}", r.err().unwrap()));
         panic!()

@@ -1,4 +1,4 @@
-use nalgebra::{Matrix4,Vector2, Vector3, Vector4};
+use nalgebra::{Matrix4, Vector2, Vector3, Vector4};
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{
     WebGl2RenderingContext, WebGlBuffer, WebGlProgram, WebGlShader, WebGlTexture,
@@ -14,22 +14,20 @@ pub struct RGBATexture {
 impl RGBATexture {
     pub fn get_raw_vector(&self) -> Vec<u8> {
         let mut v = vec![];
-        v.reserve((self.dimensions.x*self.dimensions.y *4) as usize);
-        for pixel in self.pixels.iter(){
+        v.reserve((self.dimensions.x * self.dimensions.y * 4) as usize);
+        for pixel in self.pixels.iter() {
             v.push(pixel.x);
             v.push(pixel.y);
             v.push(pixel.z);
             v.push(pixel.w);
         }
-        return v
+        return v;
     }
-    pub fn constant_color(color: Vector4<u8>,dimensions: Vector2<u32>)->Self{
-        let  pixels = (0..(dimensions.x*dimensions.y)).map(|_|color.clone()).collect();
-        Self{
-            dimensions,
-            pixels
-        }
-        
+    pub fn constant_color(color: Vector4<u8>, dimensions: Vector2<u32>) -> Self {
+        let pixels = (0..(dimensions.x * dimensions.y))
+            .map(|_| color.clone())
+            .collect();
+        Self { dimensions, pixels }
     }
 }
 pub trait GraphicsEngine: std::marker::Sized {
@@ -45,8 +43,8 @@ pub trait GraphicsEngine: std::marker::Sized {
     fn clear_screen(&mut self, color: Vector4<f32>);
     fn bind_texture(&mut self, texture: &Self::RuntimeTexture);
     fn draw_mesh(&mut self, mesh: &Self::RuntimeMesh);
-    fn send_model_matrix(&mut self,matrix: Matrix4<f32>);
-    fn send_view_matrix(&mut self,matrix: Matrix4<f32>);
+    fn send_model_matrix(&mut self, matrix: Matrix4<f32>);
+    fn send_view_matrix(&mut self, matrix: Matrix4<f32>);
 }
 pub struct WebGl {
     context: WebGl2RenderingContext,
@@ -230,8 +228,7 @@ impl GraphicsEngine for WebGl {
     }
     fn clear_screen(&mut self, color: Vector4<f32>) {
         self.context.clear_color(color.x, color.y, color.z, color.w);
-        self.context
-            .clear(WebGl2RenderingContext::COLOR_BUFFER_BIT);
+        self.context.clear(WebGl2RenderingContext::COLOR_BUFFER_BIT);
     }
     fn bind_texture(&mut self, texture: &Self::RuntimeTexture) {
         self.context
@@ -241,13 +238,13 @@ impl GraphicsEngine for WebGl {
         self.context
             .uniform1i(self.texture_sampler_location.as_ref(), 0);
     }
-    fn draw_mesh(&mut self, mesh: &Self::RuntimeMesh){
+    fn draw_mesh(&mut self, mesh: &Self::RuntimeMesh) {
         self.context
-        .bind_vertex_array(mesh.vertex_array_object.as_ref());
+            .bind_vertex_array(mesh.vertex_array_object.as_ref());
         self.context
-        .draw_arrays(WebGl2RenderingContext::TRIANGLES, 0, mesh.count);
+            .draw_arrays(WebGl2RenderingContext::TRIANGLES, 0, mesh.count);
     }
-    fn send_model_matrix(&mut self,matrix: Matrix4<f32>){
+    fn send_model_matrix(&mut self, matrix: Matrix4<f32>) {
         let model_uniform = self.context.get_uniform_location(&self.program, "model");
         self.context.uniform_matrix4fv_with_f32_array(
             model_uniform.as_ref(),
@@ -255,7 +252,7 @@ impl GraphicsEngine for WebGl {
             matrix.as_slice(),
         );
     }
-    fn send_view_matrix(&mut self,matrix: Matrix4<f32>){
+    fn send_view_matrix(&mut self, matrix: Matrix4<f32>) {
         let model_uniform = self.context.get_uniform_location(&self.program, "camera");
         self.context.uniform_matrix4fv_with_f32_array(
             model_uniform.as_ref(),

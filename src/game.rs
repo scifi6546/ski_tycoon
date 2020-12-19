@@ -1,29 +1,21 @@
-use super::{ RenderTransform,Model,Mesh,RGBATexture};
+use super::{Mesh, Model, RGBATexture, RenderTransform};
 use nalgebra::{Vector2, Vector3, Vector4};
-pub struct dep_Model {
-    pub vertices: Vec<(Vector3<f32>, Vector2<f32>)>,
-    pub texture: dep_Image,
-}
-pub struct dep_Image {
-    pub dimensions: Vector2<u32>,
-    pub data: Vec<Vector4<u8>>,
-}
-pub trait GameObject<RenderModel:std::marker::Sized> {
+pub trait GameObject<RenderModel: std::marker::Sized> {
     fn get_model(&self) -> Model;
     fn is_initilized(&self) -> bool;
     fn get_render_model(&self) -> (Option<&RenderModel>, RenderTransform);
     fn submit_render_model(&mut self, model: RenderModel);
 }
-pub struct WorldGrid<RenderModel:std::marker::Sized> {
+pub struct WorldGrid<RenderModel: std::marker::Sized> {
     dim: Vector2<i32>,
     model: Option<RenderModel>,
 }
-impl<RenderModel:std::marker::Sized> WorldGrid<RenderModel> {
+impl<RenderModel: std::marker::Sized> WorldGrid<RenderModel> {
     pub fn new(dim: Vector2<i32>) -> Self {
         Self { dim, model: None }
     }
 }
-impl<RenderModel:std::marker::Sized>  GameObject<RenderModel>  for WorldGrid<RenderModel> {
+impl<RenderModel: std::marker::Sized> GameObject<RenderModel> for WorldGrid<RenderModel> {
     fn get_model(&self) -> Model {
         let mut vertices = vec![];
         let scale = 1.0;
@@ -59,8 +51,11 @@ impl<RenderModel:std::marker::Sized>  GameObject<RenderModel>  for WorldGrid<Ren
             }
         }
         Model {
-            mesh:Mesh{ vertices},
-            texture: RGBATexture::constant_color(Vector4::new(0, 255, 255, 255), Vector2::new(8, 8)),
+            mesh: Mesh { vertices },
+            texture: RGBATexture::constant_color(
+                Vector4::new(0, 255, 255, 255),
+                Vector2::new(8, 8),
+            ),
         }
     }
     fn is_initilized(&self) -> bool {
@@ -77,11 +72,13 @@ impl<RenderModel:std::marker::Sized>  GameObject<RenderModel>  for WorldGrid<Ren
     }
 }
 /// Used for a simple Actor that moves in the game world
-struct SimpleActor<Actor: ActorBehavior,RenderModel:std::marker::Sized> {
+struct SimpleActor<Actor: ActorBehavior, RenderModel: std::marker::Sized> {
     actor: Actor,
     render_model: Option<RenderModel>,
 }
-impl<Actor: ActorBehavior,RenderModel:std::marker::Sized> GameObject<RenderModel> for SimpleActor<Actor,RenderModel> {
+impl<Actor: ActorBehavior, RenderModel: std::marker::Sized> GameObject<RenderModel>
+    for SimpleActor<Actor, RenderModel>
+{
     fn get_model(&self) -> Model {
         self.actor.get_model()
     }
@@ -92,10 +89,13 @@ impl<Actor: ActorBehavior,RenderModel:std::marker::Sized> GameObject<RenderModel
         self.render_model.is_some()
     }
     fn get_render_model(&self) -> (Option<&RenderModel>, RenderTransform) {
-        (self.render_model.as_ref(), self.actor.get_render_transform())
+        (
+            self.render_model.as_ref(),
+            self.actor.get_render_transform(),
+        )
     }
 }
-impl<Actor: ActorBehavior,RenderModel:std::marker::Sized> SimpleActor<Actor,RenderModel> {
+impl<Actor: ActorBehavior, RenderModel: std::marker::Sized> SimpleActor<Actor, RenderModel> {
     pub fn new(actor: Actor) -> Self {
         Self {
             actor,
@@ -166,7 +166,7 @@ impl ActorBehavior for Skiier {
             (Vector3::new(1.0, -1.0, -1.0), Vector2::new(0.0, 1.0)),
         ];
         Model {
-            mesh: Mesh{vertices},
+            mesh: Mesh { vertices },
             texture: RGBATexture::constant_color(Vector4::new(255, 0, 0, 255), Vector2::new(8, 8)),
         }
     }
