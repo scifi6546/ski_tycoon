@@ -1,5 +1,6 @@
 mod camera;
 mod game;
+mod graphics_engine;
 mod utils;
 use camera::Camera;
 use js_sys::{Array as JsArray, Map as JsMap};
@@ -13,7 +14,7 @@ use web_sys::{
 pub fn log(s: &str) {
     web_sys::console::log(&JsArray::from(&JsValue::from(s)));
 }
-pub fn log_js_value(s: &JsValue){
+pub fn log_js_value(s: &JsValue) {
     web_sys::console::log(&JsArray::from(s));
 }
 #[derive(PartialEq)]
@@ -199,8 +200,8 @@ impl GraphicsContext {
             assert!(texture.is_some());
             self.gl_context
                 .bind_texture(WebGl2RenderingContext::TEXTURE_2D, texture.as_ref());
-                let texture_unit = 0;
-                self.gl_context
+            let texture_unit = 0;
+            self.gl_context
                 .active_texture(WebGl2RenderingContext::TEXTURE0 + texture_unit);
             let level = 0;
             self.gl_context.tex_image_2d_with_i32_and_i32_and_i32_and_format_and_type_and_u8_array_and_src_offset(
@@ -224,8 +225,6 @@ impl GraphicsContext {
             //self.gl_context.generate_mipmap(WebGl2RenderingContext::TEXTURE_2D);
             //getting location of sampler
 
-
-
             self.gl_context
                 .uniform1i(self.texture_sampler_location.as_ref(), texture_unit as i32);
             self.gl_context.tex_parameteri(
@@ -235,11 +234,13 @@ impl GraphicsContext {
             );
             self.gl_context.tex_parameteri(
                 WebGl2RenderingContext::TEXTURE_2D,
-                WebGl2RenderingContext::TEXTURE_WRAP_S,WebGl2RenderingContext::CLAMP_TO_EDGE as i32
+                WebGl2RenderingContext::TEXTURE_WRAP_S,
+                WebGl2RenderingContext::CLAMP_TO_EDGE as i32,
             );
             self.gl_context.tex_parameteri(
                 WebGl2RenderingContext::TEXTURE_2D,
-                WebGl2RenderingContext::TEXTURE_WRAP_T,WebGl2RenderingContext::CLAMP_TO_EDGE as i32
+                WebGl2RenderingContext::TEXTURE_WRAP_T,
+                WebGl2RenderingContext::CLAMP_TO_EDGE as i32,
             );
             object.submit_render_model(RenderModel {
                 vertex_array_object: vao,
@@ -282,7 +283,7 @@ impl GraphicsContext {
             false,
             self.camera.get_mat().as_slice(),
         );
-        self.gl_context.clear_color(0.2,0.2, 0.2, 1.0);
+        self.gl_context.clear_color(0.2, 0.2, 0.2, 1.0);
         self.gl_context
             .clear(WebGl2RenderingContext::COLOR_BUFFER_BIT);
         let model: Vec<(RenderModel, RenderTransform)> = self

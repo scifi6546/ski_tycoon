@@ -9,7 +9,7 @@ pub struct Image {
     pub data: Vec<Vector4<u8>>,
 }
 impl Image {
-    const NUM_CHANNELS:u32=4;
+    const NUM_CHANNELS: u32 = 4;
     pub fn constant_color(color: Vector4<u8>, dimensions: Vector2<u32>) -> Self {
         let mut data = vec![];
         data.reserve((dimensions.x * dimensions.y) as usize);
@@ -21,19 +21,20 @@ impl Image {
         Self { data, dimensions }
     }
     pub fn get_raw_vector(&self) -> Vec<u8> {
-        let mut data =
-            vec![];
+        let mut data = vec![];
         data.reserve((self.dimensions.x * self.dimensions.y) as usize * 3);
         for x in 0..self.dimensions.x {
             for y in 0..self.dimensions.y {
-
-                data.push(self.data[(x*self.dimensions.y+y) as usize].x);
-                data.push(self.data[(x*self.dimensions.y+y) as usize].y);
-                data.push(self.data[(x*self.dimensions.y+y) as usize].z);
-                data.push(self.data[(x*self.dimensions.y+y) as usize].w);
+                data.push(self.data[(x * self.dimensions.y + y) as usize].x);
+                data.push(self.data[(x * self.dimensions.y + y) as usize].y);
+                data.push(self.data[(x * self.dimensions.y + y) as usize].z);
+                data.push(self.data[(x * self.dimensions.y + y) as usize].w);
             }
         }
-        assert_eq!(data.len() as u32,self.dimensions.x*self.dimensions.y*Self::NUM_CHANNELS);
+        assert_eq!(
+            data.len() as u32,
+            self.dimensions.x * self.dimensions.y * Self::NUM_CHANNELS
+        );
         return data;
     }
 }
@@ -89,10 +90,7 @@ impl GameObject for WorldGrid {
         }
         Model {
             vertices: verticies,
-            texture: Image::constant_color(
-                Vector4::new(0, 255, 255,255),
-                Vector2::new(8, 8),
-            ),
+            texture: Image::constant_color(Vector4::new(0, 255, 255, 255), Vector2::new(8, 8)),
         }
     }
     fn is_initilized(&self) -> bool {
@@ -199,10 +197,7 @@ impl ActorBehavior for Skiier {
         ];
         Model {
             vertices,
-            texture: Image::constant_color(
-                Vector4::new(255, 0, 0,255),
-                Vector2::new(8, 8),
-            ),
+            texture: Image::constant_color(Vector4::new(255, 0, 0, 255), Vector2::new(8, 8)),
         }
     }
     fn get_render_transform(&self) -> RenderTransform {
