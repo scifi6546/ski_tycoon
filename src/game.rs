@@ -1,104 +1,74 @@
-use super::{RenderModel, RenderTransform};
+use super::{ RenderTransform,Model,Mesh,RGBATexture};
 use nalgebra::{Vector2, Vector3, Vector4};
-pub struct Model {
+pub struct dep_Model {
     pub vertices: Vec<(Vector3<f32>, Vector2<f32>)>,
-    pub texture: Image,
+    pub texture: dep_Image,
 }
-pub struct Image {
+pub struct dep_Image {
     pub dimensions: Vector2<u32>,
     pub data: Vec<Vector4<u8>>,
 }
-impl Image {
-    const NUM_CHANNELS: u32 = 4;
-    pub fn constant_color(color: Vector4<u8>, dimensions: Vector2<u32>) -> Self {
-        let mut data = vec![];
-        data.reserve((dimensions.x * dimensions.y) as usize);
-        for _x in 0..dimensions.x {
-            for _y in 0..dimensions.y {
-                data.push(color.clone());
-            }
-        }
-        Self { data, dimensions }
-    }
-    pub fn get_raw_vector(&self) -> Vec<u8> {
-        let mut data = vec![];
-        data.reserve((self.dimensions.x * self.dimensions.y) as usize * 3);
-        for x in 0..self.dimensions.x {
-            for y in 0..self.dimensions.y {
-                data.push(self.data[(x * self.dimensions.y + y) as usize].x);
-                data.push(self.data[(x * self.dimensions.y + y) as usize].y);
-                data.push(self.data[(x * self.dimensions.y + y) as usize].z);
-                data.push(self.data[(x * self.dimensions.y + y) as usize].w);
-            }
-        }
-        assert_eq!(
-            data.len() as u32,
-            self.dimensions.x * self.dimensions.y * Self::NUM_CHANNELS
-        );
-        return data;
-    }
-}
-pub trait GameObject {
+pub trait GameObject<RenderModel:std::marker::Sized> {
     fn get_model(&self) -> Model;
     fn is_initilized(&self) -> bool;
-    fn get_render_model(&self) -> (Option<RenderModel>, RenderTransform);
+    fn get_render_model(&self) -> (Option<&RenderModel>, RenderTransform);
     fn submit_render_model(&mut self, model: RenderModel);
 }
-pub struct WorldGrid {
+pub struct WorldGrid<RenderModel:std::marker::Sized> {
     dim: Vector2<i32>,
     model: Option<RenderModel>,
 }
-impl WorldGrid {
+impl<RenderModel:std::marker::Sized> WorldGrid<RenderModel> {
     pub fn new(dim: Vector2<i32>) -> Self {
         Self { dim, model: None }
     }
 }
-impl GameObject for WorldGrid {
+impl<RenderModel:std::marker::Sized>  GameObject<RenderModel>  for WorldGrid<RenderModel> {
     fn get_model(&self) -> Model {
-        let mut verticies = vec![];
+        let mut vertices = vec![];
         let scale = 1.0;
         for x in 0..self.dim.x {
             for y in 0..self.dim.y {
                 let pos = Vector3::new(x as f32, 0.0, y as f32);
                 //first traigne
-                verticies.push((
+                vertices.push((
                     scale * (Vector3::new(0.0, 0.0, 0.0) + pos),
                     Vector2::new(0.0, 0.0),
                 ));
-                verticies.push((
+                vertices.push((
                     scale * (Vector3::new(1.0, 0.0, 1.0) + pos),
                     Vector2::new(1.0, 1.0),
                 ));
-                verticies.push((
+                vertices.push((
                     scale * (Vector3::new(1.0, 0.0, 0.0) + pos),
                     Vector2::new(1.0, 0.0),
                 ));
                 //second triangle
-                verticies.push((
+                vertices.push((
                     scale * (Vector3::new(0.0, 0.0, 0.0) + pos),
                     Vector2::new(0.0, 0.0),
                 ));
-                verticies.push((
+                vertices.push((
                     scale * (Vector3::new(0.0, 0.0, 1.0) + pos),
                     Vector2::new(0.0, 1.0),
                 ));
-                verticies.push((
+                vertices.push((
                     scale * (Vector3::new(1.0, 0.0, 1.0) + pos),
                     Vector2::new(1.0, 1.0),
                 ));
             }
         }
         Model {
-            vertices: verticies,
-            texture: Image::constant_color(Vector4::new(0, 255, 255, 255), Vector2::new(8, 8)),
+            mesh:Mesh{ vertices},
+            texture: RGBATexture::constant_color(Vector4::new(0, 255, 255, 255), Vector2::new(8, 8)),
         }
     }
     fn is_initilized(&self) -> bool {
         self.model.is_some()
     }
-    fn get_render_model(&self) -> (Option<RenderModel>, RenderTransform) {
+    fn get_render_model(&self) -> (Option<&RenderModel>, RenderTransform) {
         (
-            self.model.clone(),
+            self.model.as_ref(),
             RenderTransform::new_scale(&Vector3::new(1.0, 1.0, 1.0)),
         )
     }
@@ -107,11 +77,11 @@ impl GameObject for WorldGrid {
     }
 }
 /// Used for a simple Actor that moves in the game world
-struct SimpleActor<Actor: ActorBehavior> {
+struct SimpleActor<Actor: ActorBehavior,RenderModel:std::marker::Sized> {
     actor: Actor,
     render_model: Option<RenderModel>,
 }
-impl<Actor: ActorBehavior> GameObject for SimpleActor<Actor> {
+impl<Actor: ActorBehavior,RenderModel:std::marker::Sized> GameObject<RenderModel> for SimpleActor<Actor,RenderModel> {
     fn get_model(&self) -> Model {
         self.actor.get_model()
     }
@@ -121,11 +91,11 @@ impl<Actor: ActorBehavior> GameObject for SimpleActor<Actor> {
     fn is_initilized(&self) -> bool {
         self.render_model.is_some()
     }
-    fn get_render_model(&self) -> (Option<RenderModel>, RenderTransform) {
-        (self.render_model.clone(), self.actor.get_render_transform())
+    fn get_render_model(&self) -> (Option<&RenderModel>, RenderTransform) {
+        (self.render_model.as_ref(), self.actor.get_render_transform())
     }
 }
-impl<Actor: ActorBehavior> SimpleActor<Actor> {
+impl<Actor: ActorBehavior,RenderModel:std::marker::Sized> SimpleActor<Actor,RenderModel> {
     pub fn new(actor: Actor) -> Self {
         Self {
             actor,
@@ -140,7 +110,7 @@ trait ActorBehavior {
 }
 pub struct Skiier {}
 impl Skiier {
-    pub fn new() -> Box<dyn GameObject> {
+    pub fn new<RenderModel: 'static>() -> Box<dyn GameObject<RenderModel>> {
         Box::new(SimpleActor::new(Self {}))
     }
 }
@@ -196,8 +166,8 @@ impl ActorBehavior for Skiier {
             (Vector3::new(1.0, -1.0, -1.0), Vector2::new(0.0, 1.0)),
         ];
         Model {
-            vertices,
-            texture: Image::constant_color(Vector4::new(255, 0, 0, 255), Vector2::new(8, 8)),
+            mesh: Mesh{vertices},
+            texture: RGBATexture::constant_color(Vector4::new(255, 0, 0, 255), Vector2::new(8, 8)),
         }
     }
     fn get_render_transform(&self) -> RenderTransform {

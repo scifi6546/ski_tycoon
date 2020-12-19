@@ -5,7 +5,7 @@ use web_sys::{
     WebGlUniformLocation, WebGlVertexArrayObject,
 };
 pub struct Mesh {
-    vertices: Vec<(Vector3<f32>, Vector2<f32>)>,
+    pub vertices: Vec<(Vector3<f32>, Vector2<f32>)>,
 }
 pub struct RGBATexture {
     dimensions: Vector2<u32>,
@@ -23,6 +23,14 @@ impl RGBATexture {
         }
         return v
     }
+    pub fn constant_color(color: Vector4<u8>,dimensions: Vector2<u32>)->Self{
+        let  pixels = (0..(dimensions.x*dimensions.y)).map(|_|color.clone()).collect();
+        Self{
+            dimensions,
+            pixels
+        }
+        
+    }
 }
 pub trait GraphicsEngine: std::marker::Sized {
     type RuntimeMesh;
@@ -35,24 +43,24 @@ pub trait GraphicsEngine: std::marker::Sized {
         texture: RGBATexture,
     ) -> Result<Self::RuntimeTexture, Self::ErrorType>;
     fn clear_screen(&mut self, color: Vector4<f32>);
-    fn bind_texture(&mut self, texture: Self::RuntimeTexture);
-    fn draw_mesh(&mut self, mesh: Self::RuntimeMesh);
+    fn bind_texture(&mut self, texture: &Self::RuntimeTexture);
+    fn draw_mesh(&mut self, mesh: &Self::RuntimeMesh);
     fn send_model_matrix(&mut self,matrix: Matrix4<f32>);
     fn send_view_matrix(&mut self,matrix: Matrix4<f32>);
 }
-struct WebGl {
+pub struct WebGl {
     context: WebGl2RenderingContext,
     position_attribute_location: i32,
     uv_attribute_location: i32,
     texture_sampler_location: Option<WebGlUniformLocation>,
     program: WebGlProgram,
 }
-struct WebGlMesh {
+pub struct WebGlMesh {
     vertex_array_object: Option<WebGlVertexArrayObject>,
     position_buffer: Option<WebGlBuffer>,
     count: i32,
 }
-struct WebGlRenderTexture {
+pub struct WebGlRenderTexture {
     texture: Option<WebGlTexture>,
 }
 impl GraphicsEngine for WebGl {
@@ -222,8 +230,10 @@ impl GraphicsEngine for WebGl {
     }
     fn clear_screen(&mut self, color: Vector4<f32>) {
         self.context.clear_color(color.x, color.y, color.z, color.w);
+        self.context
+            .clear(WebGl2RenderingContext::COLOR_BUFFER_BIT);
     }
-    fn bind_texture(&mut self, texture: Self::RuntimeTexture) {
+    fn bind_texture(&mut self, texture: &Self::RuntimeTexture) {
         self.context
             .active_texture(WebGl2RenderingContext::TEXTURE0);
         self.context
@@ -231,7 +241,7 @@ impl GraphicsEngine for WebGl {
         self.context
             .uniform1i(self.texture_sampler_location.as_ref(), 0);
     }
-    fn draw_mesh(&mut self, mesh: Self::RuntimeMesh){
+    fn draw_mesh(&mut self, mesh: &Self::RuntimeMesh){
         self.context
         .bind_vertex_array(mesh.vertex_array_object.as_ref());
         self.context

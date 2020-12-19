@@ -45,7 +45,7 @@ document.getElementById("canvas").onmousemove = mouse_move
 document.getElementById("canvas").onwheel = onwheel;
 let  game = rust.init_game();
 function render(){
-    rust.render_frame(game,events);
+    game.render_frame(events);
     events=[]
     requestAnimationFrame(render)
 }
