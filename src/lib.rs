@@ -3,14 +3,18 @@ mod game;
 mod utils;
 use camera::Camera;
 use js_sys::{Array as JsArray, Map as JsMap};
-use nalgebra::{Vector2, Vector3,Matrix4};
+use nalgebra::{Matrix4, Vector2, Vector3};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::{
-    WebGl2RenderingContext, WebGlBuffer, WebGlProgram, WebGlShader, WebGlVertexArrayObject,
+    WebGl2RenderingContext, WebGlBuffer, WebGlProgram, WebGlShader, WebGlTexture,
+    WebGlUniformLocation, WebGlVertexArrayObject,
 };
 pub fn log(s: &str) {
     web_sys::console::log(&JsArray::from(&JsValue::from(s)));
+}
+pub fn log_js_value(s: &JsValue){
+    web_sys::console::log(&JsArray::from(s));
 }
 #[derive(PartialEq)]
 pub enum MouseButton {
@@ -23,15 +27,16 @@ pub struct RenderModel {
     vertex_array_object: Option<WebGlVertexArrayObject>,
     position_buffer: Option<WebGlBuffer>,
     count: i32,
+    texture: Option<WebGlTexture>,
 }
 #[derive(Clone, Debug)]
-pub struct RenderTransform{
-    matrix:Matrix4<f32>
+pub struct RenderTransform {
+    matrix: Matrix4<f32>,
 }
-impl RenderTransform{
-    pub fn new_scale(scale:&Vector3<f32>)->Self{
-        Self{
-            matrix:Matrix4::new_nonuniform_scaling(scale)
+impl RenderTransform {
+    pub fn new_scale(scale: &Vector3<f32>) -> Self {
+        Self {
+            matrix: Matrix4::new_nonuniform_scaling(scale),
         }
     }
 }
@@ -106,25 +111,37 @@ pub struct GraphicsContext {
     program: WebGlProgram,
     camera: Camera,
     position_attribute_location: i32,
-    uv_attribute_location:i32,
+    uv_attribute_location: i32,
+    texture_sampler_location: Option<WebGlUniformLocation>,
 }
 impl GraphicsContext {
-    fn render_model(&self, model: &RenderModel,transform: &RenderTransform) -> Result<(), JsValue> {
-        let model_uniform = self
-        .gl_context
-        .get_uniform_location(&self.program,"model");
+    fn render_model(
+        &self,
+        model: &RenderModel,
+        transform: &RenderTransform,
+    ) -> Result<(), JsValue> {
+        let model_uniform = self.gl_context.get_uniform_location(&self.program, "model");
         self.gl_context.uniform_matrix4fv_with_f32_array(
-        model_uniform.as_ref(),
-        false,
-        transform.matrix.as_slice());
+            model_uniform.as_ref(),
+            false,
+            transform.matrix.as_slice(),
+        );
 
         self.gl_context
             .bind_vertex_array(model.vertex_array_object.as_ref());
+        //bind texture
+        //self.gl_context.bind_texture(WebGl2RenderingContext::TEXTURE_2D,model.texture.as_ref());
+        self.gl_context
+            .active_texture(WebGl2RenderingContext::TEXTURE0);
+        self.gl_context
+            .bind_texture(WebGl2RenderingContext::TEXTURE_2D, model.texture.as_ref());
+        self.gl_context
+            .uniform1i(self.texture_sampler_location.as_ref(), 0);
         self.gl_context
             .draw_arrays(WebGl2RenderingContext::TRIANGLES, 0, model.count);
         Ok(())
     }
-    fn init_models(&mut self) {
+    fn init_models(&mut self) -> Result<(), JsValue> {
         for object in self.game_objects.iter_mut() {
             let model = object.get_model();
             let position_buffer = self.gl_context.create_buffer();
@@ -134,7 +151,7 @@ impl GraphicsContext {
                 WebGl2RenderingContext::ARRAY_BUFFER,
                 (&position_buffer).as_ref(),
             );
-            for (vertex,uv) in model.vertices.iter() {
+            for (vertex, uv) in model.vertices.iter() {
                 array.push(vertex.x);
                 array.push(vertex.y);
                 array.push(vertex.z);
@@ -159,13 +176,14 @@ impl GraphicsContext {
             self.gl_context.bind_vertex_array(vao.as_ref());
             self.gl_context
                 .enable_vertex_attrib_array(self.position_attribute_location as u32);
-            self.gl_context.enable_vertex_attrib_array(self.uv_attribute_location as u32);
+            self.gl_context
+                .enable_vertex_attrib_array(self.uv_attribute_location as u32);
             self.gl_context.vertex_attrib_pointer_with_f64(
                 self.position_attribute_location as u32,
                 3,
                 WebGl2RenderingContext::FLOAT,
                 false,
-                5*std::mem::size_of::<f32>() as i32,
+                5 * std::mem::size_of::<f32>() as i32,
                 0.0,
             );
             self.gl_context.vertex_attrib_pointer_with_i32(
@@ -173,16 +191,64 @@ impl GraphicsContext {
                 2,
                 WebGl2RenderingContext::FLOAT,
                 false,
-                5*std::mem::size_of::<f32>() as i32,
-                3
+                5 * std::mem::size_of::<f32>() as i32,
+                3 * std::mem::size_of::<f32>() as i32,
+            );
 
+            let texture = self.gl_context.create_texture();
+            assert!(texture.is_some());
+            self.gl_context
+                .bind_texture(WebGl2RenderingContext::TEXTURE_2D, texture.as_ref());
+                let texture_unit = 0;
+                self.gl_context
+                .active_texture(WebGl2RenderingContext::TEXTURE0 + texture_unit);
+            let level = 0;
+            self.gl_context.tex_image_2d_with_i32_and_i32_and_i32_and_format_and_type_and_u8_array_and_src_offset(
+                WebGl2RenderingContext::TEXTURE_2D,
+                level,
+                //  Use RGBA Format
+                WebGl2RenderingContext::RGB as i32,
+                //width
+                model.texture.dimensions.x as i32,
+                //height
+                model.texture.dimensions.y as i32,
+                //must be 0 specifies the border
+                0,
+                //  Use RGB Format
+                WebGl2RenderingContext::RGB,
+                WebGl2RenderingContext::UNSIGNED_BYTE,
+                model.texture.get_raw_vector().as_slice(),
+                0,
+
+            )?;
+            //self.gl_context.generate_mipmap(WebGl2RenderingContext::TEXTURE_2D);
+            //getting location of sampler
+
+
+
+            self.gl_context
+                .uniform1i(self.texture_sampler_location.as_ref(), texture_unit as i32);
+            self.gl_context.tex_parameteri(
+                WebGl2RenderingContext::TEXTURE_2D,
+                WebGl2RenderingContext::TEXTURE_MIN_FILTER,
+                WebGl2RenderingContext::LINEAR as i32,
+            );
+            self.gl_context.tex_parameteri(
+                WebGl2RenderingContext::TEXTURE_2D,
+                WebGl2RenderingContext::TEXTURE_WRAP_S,WebGl2RenderingContext::CLAMP_TO_EDGE as i32
+            );
+            self.gl_context.tex_parameteri(
+                WebGl2RenderingContext::TEXTURE_2D,
+                WebGl2RenderingContext::TEXTURE_WRAP_T,WebGl2RenderingContext::CLAMP_TO_EDGE as i32
             );
             object.submit_render_model(RenderModel {
                 vertex_array_object: vao,
                 count: model.vertices.len() as i32,
                 position_buffer,
+                texture,
             });
         }
+        return Ok(());
     }
     pub fn process_events(&mut self, events: &Vec<Event>) {
         for event in events {
@@ -207,6 +273,7 @@ impl GraphicsContext {
     }
     pub fn render_frame(&mut self, events: Vec<Event>) -> Result<(), JsValue> {
         self.process_events(&events);
+
         let camera_uniform = self
             .gl_context
             .get_uniform_location(&self.program, "camera");
@@ -215,16 +282,19 @@ impl GraphicsContext {
             false,
             self.camera.get_mat().as_slice(),
         );
-        self.gl_context.clear_color(0.0, 0.0, 0.0, 1.0);
+        self.gl_context.clear_color(0.2,0.2, 0.2, 1.0);
         self.gl_context
             .clear(WebGl2RenderingContext::COLOR_BUFFER_BIT);
-        let model: Vec<(RenderModel,RenderTransform)> = self
+        let model: Vec<(RenderModel, RenderTransform)> = self
             .game_objects
             .iter()
-            .map(|o|{let (m,t) = o.get_render_model();(m.unwrap(),t)})
+            .map(|o| {
+                let (m, t) = o.get_render_model();
+                (m.unwrap(), t)
+            })
             .collect();
-        for (model,transform) in model.iter() {
-            self.render_model(model,transform)?;
+        for (model, transform) in model.iter() {
+            self.render_model(model, transform)?;
         }
         let e = self.gl_context.get_error();
         if e != 0 {
@@ -254,6 +324,7 @@ pub fn start() -> Result<GraphicsContext, JsValue> {
         uniform mat4 model;
         void main() {
             gl_Position = camera*model*vec4(position,1.0);
+            o_uv = uv;
         }
     "#,
     )?;
@@ -264,8 +335,9 @@ pub fn start() -> Result<GraphicsContext, JsValue> {
         precision highp float;
         out vec4 color;
         in vec2 o_uv;
+        uniform sampler2D u_texture;
         void main() {
-            color = vec4(o_uv.x, o_uv.y, 1.0, 1.0);
+            color = texture(u_texture,o_uv);
         }
     "#,
     )?;
@@ -273,15 +345,20 @@ pub fn start() -> Result<GraphicsContext, JsValue> {
     context.use_program(Some(&program));
     let position_attribute_location = context.get_attrib_location(&program, "position");
     let uv_attribute_location = context.get_attrib_location(&program, "uv");
+    let texture_sampler_location = context.get_uniform_location(&program, "u_texture");
     let mut g = GraphicsContext {
         gl_context: context,
         program,
         position_attribute_location,
         camera: Camera::new(Vector3::new(0.0, 0.0, 0.0), 40.0, 0.0, 0.0),
-        game_objects: vec![Box::new(game::WorldGrid::new(Vector2::new(10, 10))),game::Skiier::new()],
-        uv_attribute_location
+        game_objects: vec![
+            Box::new(game::WorldGrid::new(Vector2::new(10, 10))),
+            game::Skiier::new(),
+        ],
+        uv_attribute_location,
+        texture_sampler_location,
     };
-    g.init_models();
+    g.init_models()?;
     Ok(g)
 }
 

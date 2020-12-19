@@ -28,9 +28,9 @@ impl Camera {
     pub fn rotate_theta(&mut self, delta_theta: f32) {
         self.theta += delta_theta;
     }
-    /// Increases radius by delta radius
+    /// Increases by value proportional to delta radius
     pub fn update_radius(&mut self, delta_radius: f32) {
-        self.radius += delta_radius
+        self.radius += delta_radius * self.radius;
     }
     pub fn get_mat(&self) -> Matrix4<f32> {
         let delta_position = self.radius
