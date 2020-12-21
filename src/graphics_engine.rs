@@ -4,10 +4,11 @@ use web_sys::{
     WebGl2RenderingContext, WebGlBuffer, WebGlFramebuffer, WebGlProgram, WebGlShader, WebGlTexture,
     WebGlUniformLocation, WebGlVertexArrayObject,
 };
-
+#[derive(Clone)]
 pub struct Mesh {
     pub vertices: Vec<(Vector3<f32>, Vector2<f32>)>,
 }
+#[derive(Clone)]
 pub struct RGBATexture {
     dimensions: Vector2<u32>,
     pixels: Vec<Vector4<u8>>,

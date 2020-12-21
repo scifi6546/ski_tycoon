@@ -1,7 +1,7 @@
 use super::prelude::{Model, RenderModel};
 use generational_arena::{Arena, Index as ArenaIndex};
 use nalgebra::Vector2;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 struct GuiContainer {
     elements: Arena<Box<dyn GuiElement>>,
     /// points to index of parent in world arena
@@ -15,13 +15,14 @@ impl GuiContainer {
     fn get_screen_collider(&self) -> Vec<Triangle> {
         todo!()
     }
-    fn get_render_model(&self) -> &RenderGuiContainer {
+    fn get_render_model(&self) -> Vec<RenderModel> {
         todo!()
     }
+    // to call after state updates
     fn get_model(&mut self) -> HashMap<ArenaIndex, Model> {
         todo!()
     }
-    fn submut_render_model(&mut self, models: HashMap<ArenaIndex, Model>) {
+    fn submit_model(&mut self, models: &HashMap<ArenaIndex, RenderModel>) {
         todo!()
     }
 }
@@ -90,15 +91,20 @@ struct GuiState {
 /// ```
 /// //processes events and sends new models to update
 /// fn process_events(&mut self,events: EventPacket,objects: &mut Arena<Box<dyn GuiParent>>,)->HashMap<ArenaIndex,Model>;
+/// //submitting hashmap
+/// fn submit_model(&mut self,map: HashMap<(ArenaIndex,ArenaIndex),RuntimeModel>);
 /// //called after process event every frame. gets all models to be drawn.
 /// fn get_runtime_model(&self)->Vec<RuntimeModel>;
+/// ```
 impl GuiState {
     #[allow(dead_code)]
     pub fn game_loop(
         &mut self,
         events: EventPacket,
         objects: &mut Arena<Box<dyn GuiParent>>,
-    ) -> HashMap<ArenaIndex, Model> {
+    ) -> HashMap<(ArenaIndex, ArenaIndex), Model> {
+        //list of models to update
+        let mut to_update = HashSet::new();
         //1. process event. Mark key if state needs changing
         let mut update_gui = vec![];
         let mut messages = vec![];
@@ -109,6 +115,7 @@ impl GuiState {
             update_gui.append(&mut gui);
             messages.append(&mut msg);
         }
+
         //2. Update gui boxes with specific keys marked by update
         for (state, parent_index, child_index) in update_gui.iter() {
             match state {
@@ -116,13 +123,14 @@ impl GuiState {
                 StateChange::UpdateGui => {
                     if let Some(parent) = self.containers.get_mut(parent_index) {
                         if let Some(child) = parent.elements.get(*child_index) {
-                            parent.update_render_gui_container();
+                            to_update.insert(parent_index.clone());
                         }
                     }
                 }
                 StateChange::DeleteParent => {
                     if self.containers.contains_key(parent_index) {
                         self.containers.remove(parent_index);
+                        to_update.insert(parent_index.clone());
                     }
                 }
             }
@@ -144,6 +152,7 @@ impl GuiState {
             match object.get_gui() {
                 GetGuiOutput::Contianer(c) => {
                     self.containers.insert(index, c);
+                    to_update.insert(index.clone());
                 }
                 GetGuiOutput::NoChange => (),
                 GetGuiOutput::None => {
@@ -151,14 +160,49 @@ impl GuiState {
                 }
             }
         }
-        //6. Render Gui
-        let mut output = vec![];
-        for container in self.containers.iter().map(|(_i, c)| c.get_render_model()) {
-            output.push(container.parent.clone());
-            output.append(&mut container.children.clone());
+        let mut output = HashMap::<(ArenaIndex, ArenaIndex), Model>::new();
+        //6. get deltas
+        for index in to_update.iter() {
+            if let Some(container) = self.containers.get_mut(index) {
+                let models = container.get_model();
+                for (child_idx, m) in models.iter() {
+                    output.insert(((index.clone()).clone(), child_idx.clone()), m.clone());
+                }
+            }
         }
         return output;
     }
+    pub fn submit_model(&mut self, map: HashMap<(ArenaIndex, ArenaIndex), RenderModel>) {
+        let mut model_map: HashMap<ArenaIndex, HashMap<ArenaIndex, RenderModel>> = HashMap::new();
+        for ((container_idx, child_idx), runtime_model) in map.iter() {
+            if let Some(container) = model_map.get_mut(&container_idx.clone()) {
+                container.insert(child_idx.clone(), runtime_model.clone());
+            } else {
+                model_map.insert(
+                    container_idx.clone(),
+                    HashMap::<ArenaIndex, RenderModel>::new(),
+                );
+                model_map
+                    .get_mut(container_idx)
+                    .unwrap()
+                    .insert(child_idx.clone(), runtime_model.clone());
+            }
+        }
+        for (container_idx, map) in model_map.iter() {
+            self.containers
+                .get_mut(container_idx)
+                .unwrap()
+                .submit_model(map);
+        }
+    }
+    pub fn get_runtime_model(&self) -> Vec<RenderModel> {
+        let mut out_vec = vec![];
+        for (_idx, container) in self.containers.iter() {
+            out_vec.append(&mut container.get_render_model());
+        }
+        return out_vec;
+    }
+    ///
     /// checks if mouse interesected with one part of the gui. First return argument is the list of guis elements
     /// that need updating. Second is a vector of (Index of Gameobjects to Send message to, Message to send)
     fn process_mouse_gui(

@@ -16,6 +16,7 @@ mod prelude {
     pub use super::{Model, RenderModel};
     pub use crate::graphics_engine::GraphicsEngine;
 }
+#[derive(Clone)]
 pub struct Model {
     pub mesh: Mesh,
     pub texture: RGBATexture,
