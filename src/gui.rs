@@ -1,7 +1,7 @@
+use super::prelude::{Model, RenderModel};
 use generational_arena::{Arena, Index as ArenaIndex};
 use nalgebra::Vector2;
 use std::collections::HashMap;
-use super::prelude::RenderModel;
 struct GuiContainer {
     elements: Arena<Box<dyn GuiElement>>,
     /// points to index of parent in world arena
@@ -18,7 +18,10 @@ impl GuiContainer {
     fn get_render_model(&self) -> &RenderGuiContainer {
         todo!()
     }
-    fn update_render_gui_container(&mut self) {
+    fn get_model(&mut self) -> HashMap<ArenaIndex, Model> {
+        todo!()
+    }
+    fn submut_render_model(&mut self, models: HashMap<ArenaIndex, Model>) {
         todo!()
     }
 }
@@ -95,7 +98,7 @@ impl GuiState {
         &mut self,
         events: EventPacket,
         objects: &mut Arena<Box<dyn GuiParent>>,
-    ) -> Vec<RenderModel> {
+    ) -> HashMap<ArenaIndex, Model> {
         //1. process event. Mark key if state needs changing
         let mut update_gui = vec![];
         let mut messages = vec![];
