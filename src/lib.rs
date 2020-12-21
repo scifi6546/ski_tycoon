@@ -12,6 +12,10 @@ use js_sys::{Array as JsArray, Map as JsMap};
 use nalgebra::{Matrix4, Vector2, Vector3, Vector4};
 use wasm_bindgen::prelude::*;
 use web_sys::{WebGlBuffer, WebGlTexture, WebGlVertexArrayObject};
+mod prelude{
+    pub use crate::graphics_engine::GraphicsEngine;
+    pub use super::RenderModel;
+}
 pub struct Model {
     pub mesh: Mesh,
     pub texture: RGBATexture,

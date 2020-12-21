@@ -1,17 +1,15 @@
 use generational_arena::{Arena, Index as ArenaIndex};
 use nalgebra::Vector2;
 use std::collections::HashMap;
-/// Temporary  Object representing gui rendering
-#[derive(Clone, Debug)]
-struct RenderObject {}
+use super::prelude::RenderModel;
 struct GuiContainer {
     elements: Arena<Box<dyn GuiElement>>,
     /// points to index of parent in world arena
     parent_index: ArenaIndex,
 }
 struct RenderGuiContainer {
-    parent: RenderObject,
-    children: Vec<RenderObject>,
+    parent: RenderModel,
+    children: Vec<RenderModel>,
 }
 impl GuiContainer {
     fn get_screen_collider(&self) -> Vec<Triangle> {
@@ -53,7 +51,7 @@ trait GuiElement {
     /// Recieves events from the runtime. Includes thing like click events. If the state is changed get model will be called.
     fn process_event(&self, event: Event) -> (StateChange, Vec<Message>);
     /// Gets the model. Should only be called when first constructed or process event returns `StateChange::UpdateGui`
-    fn get_model(&self) -> RenderObject;
+    fn get_model(&self) -> RenderModel;
     /// Gets collider triangle in screen coordinates
     fn get_screen_collider(&self) -> Vec<Triangle>;
 }
@@ -84,13 +82,20 @@ trait GuiParent {
 struct GuiState {
     containers: HashMap<ArenaIndex, GuiContainer>,
 }
+/// What needs to get changed (tommorow)
+/// Add two new functions that look like
+/// ```
+/// //processes events and sends new models to update
+/// fn process_events(&mut self,events: EventPacket,objects: &mut Arena<Box<dyn GuiParent>>,)->HashMap<ArenaIndex,Model>;
+/// //called after process event every frame. gets all models to be drawn.
+/// fn get_runtime_model(&self)->Vec<RuntimeModel>;
 impl GuiState {
     #[allow(dead_code)]
     pub fn game_loop(
         &mut self,
         events: EventPacket,
         objects: &mut Arena<Box<dyn GuiParent>>,
-    ) -> Vec<RenderObject> {
+    ) -> Vec<RenderModel> {
         //1. process event. Mark key if state needs changing
         let mut update_gui = vec![];
         let mut messages = vec![];
