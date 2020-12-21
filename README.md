@@ -67,3 +67,23 @@ wasm-pack publish
   for logging panic messages to the developer console.
 * [`wee_alloc`](https://github.com/rustwasm/wee_alloc), an allocator optimized
   for small code size.
+
+
+## Event Loop
+1. bind scene framebuffer
+
+2. render scene
+
+3. bind defualt framebuffer
+
+4. bind scne texture
+
+5. bind scene model
+
+6. render scene texture
+
+## GUI
+
+```
+
+```

@@ -1,8 +1,11 @@
 mod camera;
 mod game;
 mod graphics_engine;
+mod gui;
 mod utils;
 use camera::Camera;
+use game::GameObject;
+use generational_arena::Arena;
 use graphics_engine::GraphicsEngine;
 pub use graphics_engine::{Mesh, RGBATexture};
 use js_sys::{Array as JsArray, Map as JsMap};
@@ -109,7 +112,7 @@ impl Event {
 }
 
 pub struct GraphicsContext<E: GraphicsEngine> {
-    game_objects: Vec<Box<dyn game::GameObject<(E::RuntimeMesh, E::RuntimeTexture)>>>,
+    game_objects: Arena<Box<dyn game::GameObject<(E::RuntimeMesh, E::RuntimeTexture)>>>,
     camera: Camera,
     engine: E,
 }
@@ -137,9 +140,10 @@ impl<E: GraphicsEngine> GraphicsContext<E> {
     }
     pub fn render_frame(&mut self, events: Vec<Event>) -> Result<(), JsValue> {
         self.process_events(&events);
+        self.engine.bind_default_framebuffer();
         self.engine.clear_screen(Vector4::new(0.2, 0.2, 0.2, 1.0));
         self.engine.send_view_matrix(self.camera.get_mat());
-        for object in self.game_objects.iter() {
+        for (_k, object) in self.game_objects.iter() {
             let (model_opt, trans) = object.get_render_model();
             if let Some((model, texture)) = model_opt {
                 self.engine.send_model_matrix(trans.matrix);
@@ -150,7 +154,7 @@ impl<E: GraphicsEngine> GraphicsContext<E> {
         Ok(())
     }
     pub fn init_models(&mut self) -> Result<(), E::ErrorType> {
-        for object in self.game_objects.iter_mut() {
+        for (_key, object) in self.game_objects.iter_mut() {
             let model = object.get_model();
             let mesh = self.engine.build_mesh(model.mesh)?;
             let texture = self.engine.build_texture(model.texture)?;
@@ -161,14 +165,14 @@ impl<E: GraphicsEngine> GraphicsContext<E> {
 }
 pub fn start() -> Result<GraphicsContext<graphics_engine::WebGl>, JsValue> {
     let graphics = graphics_engine::WebGl::init()?;
+    let mut game_objects = Arena::new();
+    game_objects.insert(game::Skiier::new());
+    game_objects.insert(Box::new(game::WorldGrid::new(Vector2::new(10, 10))));
 
     let mut g = GraphicsContext {
         engine: graphics,
         camera: Camera::new(Vector3::new(0.0, 0.0, 0.0), 40.0, 0.0, 0.0),
-        game_objects: vec![
-            Box::new(game::WorldGrid::new(Vector2::new(10, 10))),
-            game::Skiier::new(),
-        ],
+        game_objects,
     };
     g.init_models()?;
     Ok(g)

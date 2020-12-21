@@ -1,7 +1,7 @@
 use nalgebra::{Matrix4, Vector2, Vector3, Vector4};
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{
-    WebGl2RenderingContext, WebGlBuffer, WebGlProgram, WebGlShader, WebGlTexture,
+    WebGl2RenderingContext, WebGlBuffer, WebGlFramebuffer, WebGlProgram, WebGlShader, WebGlTexture,
     WebGlUniformLocation, WebGlVertexArrayObject,
 };
 pub struct Mesh {
@@ -34,13 +34,21 @@ pub trait GraphicsEngine: std::marker::Sized {
     type RuntimeMesh;
     type RuntimeTexture;
     type ErrorType;
+    type Framebuffer;
     fn init() -> Result<Self, Self::ErrorType>;
     fn build_mesh(&mut self, mesh: Mesh) -> Result<Self::RuntimeMesh, Self::ErrorType>;
     fn build_texture(
         &mut self,
         texture: RGBATexture,
     ) -> Result<Self::RuntimeTexture, Self::ErrorType>;
+    fn build_framebuffer(
+        &mut self,
+        texture_attachment: &mut Self::RuntimeTexture,
+    ) -> Self::Framebuffer;
     fn clear_screen(&mut self, color: Vector4<f32>);
+    fn bind_framebuffer(&mut self, framebuffer: &Self::Framebuffer);
+    /// Binds the screen and all rendercalls made after this calls will draw to the screen.
+    fn bind_default_framebuffer(&mut self);
     fn bind_texture(&mut self, texture: &Self::RuntimeTexture);
     fn draw_mesh(&mut self, mesh: &Self::RuntimeMesh);
     fn send_model_matrix(&mut self, matrix: Matrix4<f32>);
@@ -61,10 +69,14 @@ pub struct WebGlMesh {
 pub struct WebGlRenderTexture {
     texture: Option<WebGlTexture>,
 }
+pub struct WebFramebuffer {
+    framebuffer: Option<WebGlFramebuffer>,
+}
 impl GraphicsEngine for WebGl {
     type RuntimeMesh = WebGlMesh;
     type RuntimeTexture = WebGlRenderTexture;
     type ErrorType = JsValue;
+    type Framebuffer = WebFramebuffer;
     fn init() -> Result<Self, Self::ErrorType> {
         let window = web_sys::window().unwrap();
         let document = window.document().unwrap();
@@ -226,6 +238,28 @@ impl GraphicsEngine for WebGl {
             texture: gl_texture,
         })
     }
+    fn build_framebuffer(
+        &mut self,
+        texture_attachment: &mut Self::RuntimeTexture,
+    ) -> Self::Framebuffer {
+        let framebuffer = self.context.create_framebuffer();
+        self.context
+            .bind_framebuffer(WebGl2RenderingContext::FRAMEBUFFER, framebuffer.as_ref());
+        self.context.framebuffer_texture_2d(
+            WebGl2RenderingContext::FRAMEBUFFER,
+            WebGl2RenderingContext::COLOR_ATTACHMENT0,
+            WebGl2RenderingContext::TEXTURE_2D,
+            texture_attachment.texture.as_ref(),
+            0,
+        );
+        // rebinding to default framebuffer to prevent side effects
+        self.bind_default_framebuffer();
+        WebFramebuffer { framebuffer }
+    }
+    fn bind_default_framebuffer(&mut self) {
+        self.context
+            .bind_framebuffer(WebGl2RenderingContext::FRAMEBUFFER, None);
+    }
     fn clear_screen(&mut self, color: Vector4<f32>) {
         self.context.clear_color(color.x, color.y, color.z, color.w);
         self.context.clear(WebGl2RenderingContext::COLOR_BUFFER_BIT);
@@ -237,6 +271,12 @@ impl GraphicsEngine for WebGl {
             .bind_texture(WebGl2RenderingContext::TEXTURE_2D, texture.texture.as_ref());
         self.context
             .uniform1i(self.texture_sampler_location.as_ref(), 0);
+    }
+    fn bind_framebuffer(&mut self, framebuffer: &Self::Framebuffer) {
+        self.context.bind_framebuffer(
+            WebGl2RenderingContext::FRAMEBUFFER,
+            framebuffer.framebuffer.as_ref(),
+        );
     }
     fn draw_mesh(&mut self, mesh: &Self::RuntimeMesh) {
         self.context
@@ -309,5 +349,17 @@ impl WebGl {
                 .get_program_info_log(&program)
                 .unwrap_or_else(|| String::from("Unknown error creating program object")))
         }
+    }
+    fn bind_gl_texture(&self, texture: Option<&WebGlTexture>) {
+        self.context
+            .active_texture(WebGl2RenderingContext::TEXTURE0);
+        self.context
+            .bind_texture(WebGl2RenderingContext::TEXTURE_2D, texture);
+        self.context
+            .uniform1i(self.texture_sampler_location.as_ref(), 0);
+    }
+    fn bind_framebuffer(&self, framebuffer: Option<&WebGlFramebuffer>) {
+        self.context
+            .bind_framebuffer(WebGl2RenderingContext::FRAMEBUFFER, framebuffer);
     }
 }
