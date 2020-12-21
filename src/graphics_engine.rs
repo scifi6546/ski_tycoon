@@ -4,6 +4,7 @@ use web_sys::{
     WebGl2RenderingContext, WebGlBuffer, WebGlFramebuffer, WebGlProgram, WebGlShader, WebGlTexture,
     WebGlUniformLocation, WebGlVertexArrayObject,
 };
+
 pub struct Mesh {
     pub vertices: Vec<(Vector3<f32>, Vector2<f32>)>,
 }

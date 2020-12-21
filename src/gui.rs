@@ -1,15 +1,15 @@
 use generational_arena::{Arena, Index as ArenaIndex};
-use std::collections::HashMap;
 use nalgebra::Vector2;
+use std::collections::HashMap;
 /// Temporary  Object representing gui rendering
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 struct RenderObject {}
 struct GuiContainer {
     elements: Arena<Box<dyn GuiElement>>,
     /// points to index of parent in world arena
     parent_index: ArenaIndex,
 }
-struct RenderGuiContainer{
+struct RenderGuiContainer {
     parent: RenderObject,
     children: Vec<RenderObject>,
 }
@@ -17,10 +17,10 @@ impl GuiContainer {
     fn get_screen_collider(&self) -> Vec<Triangle> {
         todo!()
     }
-    fn get_render_model(&self)->&RenderGuiContainer{
+    fn get_render_model(&self) -> &RenderGuiContainer {
         todo!()
     }
-    fn update_render_gui_container(&mut self){
+    fn update_render_gui_container(&mut self) {
         todo!()
     }
 }
@@ -38,15 +38,15 @@ enum Event {
     MouseEvent(MouseEvent),
 }
 //wheter or not to update gui
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 enum Message {
     /// Clicked on Mesh
-    ClickedOn
+    ClickedOn,
 }
 enum StateChange {
     NoChange,
     UpdateGui,
-    DeleteParent
+    DeleteParent,
 }
 trait GuiElement {
     fn get_box(&self) -> BoundingBox;
@@ -82,7 +82,7 @@ trait GuiParent {
     fn get_screen_collider(&self) -> Vec<Triangle>;
 }
 struct GuiState {
-    containers: HashMap<ArenaIndex,GuiContainer>,
+    containers: HashMap<ArenaIndex, GuiContainer>,
 }
 impl GuiState {
     #[allow(dead_code)]
@@ -95,65 +95,71 @@ impl GuiState {
         let mut update_gui = vec![];
         let mut messages = vec![];
         for event in events.events.iter() {
-            let (mut gui,mut msg) = match event{
-                Event::MouseEvent(m)=>self.process_mouse_gui(m)
+            let (mut gui, mut msg) = match event {
+                Event::MouseEvent(m) => self.process_mouse_gui(m),
             };
             update_gui.append(&mut gui);
             messages.append(&mut msg);
         }
         //2. Update gui boxes with specific keys marked by update
-        for (state,parent_index,child_index) in update_gui.iter(){
-            match state{
-                StateChange::NoChange=>(),
-                StateChange::UpdateGui=>{
-                    if let Some(parent) = self.containers.get_mut(parent_index){
-                        if let Some(child) = parent.elements.get(*child_index){
+        for (state, parent_index, child_index) in update_gui.iter() {
+            match state {
+                StateChange::NoChange => (),
+                StateChange::UpdateGui => {
+                    if let Some(parent) = self.containers.get_mut(parent_index) {
+                        if let Some(child) = parent.elements.get(*child_index) {
                             parent.update_render_gui_container();
                         }
                     }
-                },
-                StateChange::DeleteParent=>
-                    if self.containers.contains_key(parent_index){
+                }
+                StateChange::DeleteParent => {
+                    if self.containers.contains_key(parent_index) {
                         self.containers.remove(parent_index);
                     }
-                
+                }
             }
         }
         //3. send on click
-        for (index, object) in objects.iter(){
-            for triangle in object.get_screen_collider(){
-                if triangle.intersects(&events.mouse_position){
-                    messages.push((index,Message::ClickedOn));
+        for (index, object) in objects.iter() {
+            for triangle in object.get_screen_collider() {
+                if triangle.intersects(&events.mouse_position) {
+                    messages.push((index, Message::ClickedOn));
                 }
             }
         }
         //4. send messages to owning objects
-        for (index,message) in messages.iter(){
+        for (index, message) in messages.iter() {
             objects[*index].process_message(message);
         }
         //5. Get gui from all items. update gui as nessecary
-        for (index,object) in objects.iter(){
-            match object.get_gui(){
-                GetGuiOutput::Contianer(c)=>{self.containers.insert(index,c);},
-                GetGuiOutput::NoChange=>(),
-                GetGuiOutput::None=>{self.containers.remove(&index);},
+        for (index, object) in objects.iter() {
+            match object.get_gui() {
+                GetGuiOutput::Contianer(c) => {
+                    self.containers.insert(index, c);
+                }
+                GetGuiOutput::NoChange => (),
+                GetGuiOutput::None => {
+                    self.containers.remove(&index);
+                }
             }
         }
         //6. Render Gui
         let mut output = vec![];
-        for container in self.containers.iter().map(|(_i,c)|c.get_render_model()){
+        for container in self.containers.iter().map(|(_i, c)| c.get_render_model()) {
             output.push(container.parent.clone());
             output.append(&mut container.children.clone());
-
         }
         return output;
     }
-    /// checks if mouse interesected with one part of the gui. First return argument is the list of guis elements 
+    /// checks if mouse interesected with one part of the gui. First return argument is the list of guis elements
     /// that need updating. Second is a vector of (Index of Gameobjects to Send message to, Message to send)
     fn process_mouse_gui(
         &mut self,
         mouse: &MouseEvent,
-    ) -> (Vec<(StateChange,ArenaIndex, ArenaIndex)>, Vec<(ArenaIndex, Message)>) {
+    ) -> (
+        Vec<(StateChange, ArenaIndex, ArenaIndex)>,
+        Vec<(ArenaIndex, Message)>,
+    ) {
         let mut update_events = vec![];
         let mut update_mesages = vec![];
         for (parent_index, container) in self.containers.iter_mut() {
@@ -170,15 +176,16 @@ impl GuiState {
                         .map(|t| t.intersects(&mouse.mouse_position))
                         .fold(false, |acc, x| acc | x)
                     {
-                        let (state_change,messages) = element.process_event(Event::MouseEvent(mouse.clone()));
-                        update_events.push((state_change,parent_index.clone(), child_index));
-                        for msg in messages.iter(){
-                            update_mesages.push((container.parent_index,msg.clone()));
+                        let (state_change, messages) =
+                            element.process_event(Event::MouseEvent(mouse.clone()));
+                        update_events.push((state_change, parent_index.clone(), child_index));
+                        for msg in messages.iter() {
+                            update_mesages.push((container.parent_index, msg.clone()));
                         }
                     }
                 }
             }
         }
-        return (update_events,update_mesages);
+        return (update_events, update_mesages);
     }
 }
