@@ -4,17 +4,16 @@ mod graphics_engine;
 mod gui;
 mod utils;
 use camera::Camera;
-use game::GameObject;
 use generational_arena::Arena;
 use graphics_engine::GraphicsEngine;
 pub use graphics_engine::{Mesh, RGBATexture};
 use js_sys::{Array as JsArray, Map as JsMap};
 use nalgebra::{Matrix4, Vector2, Vector3, Vector4};
 use wasm_bindgen::prelude::*;
-use web_sys::{WebGlBuffer, WebGlTexture, WebGlVertexArrayObject};
 mod prelude {
-    pub use super::{Model, RenderModel};
+    pub use super::Model;
     pub use crate::graphics_engine::GraphicsEngine;
+    pub use crate::gui::GuiParent;
 }
 #[derive(Clone)]
 pub struct Model {
@@ -32,13 +31,6 @@ pub enum MouseButton {
     LeftClick,
     MiddleClick,
     RightClick,
-}
-#[derive(Clone, Debug)]
-pub struct RenderModel {
-    vertex_array_object: Option<WebGlVertexArrayObject>,
-    position_buffer: Option<WebGlBuffer>,
-    count: i32,
-    texture: Option<WebGlTexture>,
 }
 #[derive(Clone, Debug)]
 pub struct RenderTransform {
@@ -115,9 +107,28 @@ impl Event {
         }
     }
 }
-
+struct FramebufferSurface<E: GraphicsEngine> {
+    framebuffer: E::Framebuffer,
+    texture: E::RuntimeTexture,
+    mesh: E::RuntimeMesh,
+}
+impl<E: GraphicsEngine> FramebufferSurface<E> {
+    fn get_model() -> Mesh {
+        Mesh {
+            vertices: vec![
+                (Vector3::new(1.0, -1.0, 0.0), Vector2::new(1.0, 0.0)),
+                (Vector3::new(-1.0, -1.0, 0.0), Vector2::new(0.0, 0.0)),
+                (Vector3::new(1.0, 1.0, 0.0), Vector2::new(1.0, 1.0)),
+                (Vector3::new(-1.0, -1.0, 0.0), Vector2::new(0.0, 0.0)),
+                (Vector3::new(-1.0, 1.0, 0.0), Vector2::new(0.0, 1.0)),
+                (Vector3::new(1.0, 1.0, 0.0), Vector2::new(1.0, 1.0)),
+            ],
+        }
+    }
+}
 pub struct GraphicsContext<E: GraphicsEngine> {
     game_objects: Arena<Box<dyn game::GameObject<(E::RuntimeMesh, E::RuntimeTexture)>>>,
+    game_world_framebuffer: FramebufferSurface<E>,
     camera: Camera,
     engine: E,
 }
@@ -145,17 +156,32 @@ impl<E: GraphicsEngine> GraphicsContext<E> {
     }
     pub fn render_frame(&mut self, events: Vec<Event>) -> Result<(), JsValue> {
         self.process_events(&events);
-        self.engine.bind_default_framebuffer();
+        self.engine
+            .bind_framebuffer(&self.game_world_framebuffer.framebuffer);
         self.engine.clear_screen(Vector4::new(0.2, 0.2, 0.2, 1.0));
+        //binding game world framebuffer
+        self.engine
+            .bind_framebuffer(&self.game_world_framebuffer.framebuffer);
         self.engine.send_view_matrix(self.camera.get_mat());
         for (_k, object) in self.game_objects.iter() {
-            let (model_opt, trans) = object.get_render_model();
-            if let Some((model, texture)) = model_opt {
-                self.engine.send_model_matrix(trans.matrix);
+            let render_model = object.get_render_model();
+            if let Some((model, texture)) = render_model.model {
+                self.engine.send_model_matrix(render_model.transform.matrix);
                 self.engine.bind_texture(texture);
                 self.engine.draw_mesh(model);
             }
         }
+        //Drawing in gui world
+
+        self.engine.bind_default_framebuffer();
+        self.engine.clear_screen(Vector4::new(0.2, 0.2, 0.2, 1.0));
+        //settig coordinates to standard glm box
+        self.engine.send_model_matrix(Matrix4::identity());
+        self.engine.send_view_matrix(Matrix4::identity());
+        self.engine
+            .bind_texture(&self.game_world_framebuffer.texture);
+        self.engine.draw_mesh(&self.game_world_framebuffer.mesh);
+
         Ok(())
     }
     pub fn init_models(&mut self) -> Result<(), E::ErrorType> {
@@ -169,7 +195,23 @@ impl<E: GraphicsEngine> GraphicsContext<E> {
     }
 }
 pub fn start() -> Result<GraphicsContext<graphics_engine::WebGl>, JsValue> {
-    let graphics = graphics_engine::WebGl::init()?;
+    let mut graphics = graphics_engine::WebGl::init()?;
+    let mut texture = graphics.build_texture(RGBATexture::constant_color(
+        Vector4::new(0, 0, 0, 0),
+        Vector2::new(800, 800),
+    ))?;
+    let framebuffer = graphics.build_framebuffer(&mut texture);
+    let mesh = graphics
+        .build_mesh(FramebufferSurface::<graphics_engine::WebGl>::get_model())
+        .ok()
+        .unwrap();
+
+    let game_world_framebuffer = FramebufferSurface {
+        texture,
+        framebuffer,
+        mesh,
+    };
+
     let mut game_objects = Arena::new();
     game_objects.insert(game::Skiier::new());
     game_objects.insert(Box::new(game::WorldGrid::new(Vector2::new(10, 10))));
@@ -178,6 +220,7 @@ pub fn start() -> Result<GraphicsContext<graphics_engine::WebGl>, JsValue> {
         engine: graphics,
         camera: Camera::new(Vector3::new(0.0, 0.0, 0.0), 40.0, 0.0, 0.0),
         game_objects,
+        game_world_framebuffer,
     };
     g.init_models()?;
     Ok(g)

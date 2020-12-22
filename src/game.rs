@@ -1,9 +1,13 @@
 use super::{Mesh, Model, RGBATexture, RenderTransform};
 use nalgebra::{Vector2, Vector3, Vector4};
+pub struct ObjectTickOutput<'a, RenderModel> {
+    pub model: Option<&'a RenderModel>,
+    pub transform: RenderTransform,
+}
 pub trait GameObject<RenderModel: std::marker::Sized> {
     fn get_model(&self) -> Model;
     fn is_initilized(&self) -> bool;
-    fn get_render_model(&self) -> (Option<&RenderModel>, RenderTransform);
+    fn get_render_model(&self) -> ObjectTickOutput<RenderModel>;
     fn submit_render_model(&mut self, model: RenderModel);
 }
 pub struct WorldGrid<RenderModel: std::marker::Sized> {
@@ -61,11 +65,11 @@ impl<RenderModel: std::marker::Sized> GameObject<RenderModel> for WorldGrid<Rend
     fn is_initilized(&self) -> bool {
         self.model.is_some()
     }
-    fn get_render_model(&self) -> (Option<&RenderModel>, RenderTransform) {
-        (
-            self.model.as_ref(),
-            RenderTransform::new_scale(&Vector3::new(1.0, 1.0, 1.0)),
-        )
+    fn get_render_model(&self) -> ObjectTickOutput<RenderModel> {
+        ObjectTickOutput {
+            model: self.model.as_ref(),
+            transform: RenderTransform::new_scale(&Vector3::new(1.0, 1.0, 1.0)),
+        }
     }
     fn submit_render_model(&mut self, model: RenderModel) {
         self.model = Some(model);
@@ -88,11 +92,11 @@ impl<Actor: ActorBehavior, RenderModel: std::marker::Sized> GameObject<RenderMod
     fn is_initilized(&self) -> bool {
         self.render_model.is_some()
     }
-    fn get_render_model(&self) -> (Option<&RenderModel>, RenderTransform) {
-        (
-            self.render_model.as_ref(),
-            self.actor.get_render_transform(),
-        )
+    fn get_render_model(&self) -> ObjectTickOutput<RenderModel> {
+        ObjectTickOutput {
+            model: self.render_model.as_ref(),
+            transform: self.actor.get_render_transform(),
+        }
     }
 }
 impl<Actor: ActorBehavior, RenderModel: std::marker::Sized> SimpleActor<Actor, RenderModel> {

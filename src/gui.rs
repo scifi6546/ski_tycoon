@@ -1,17 +1,15 @@
-use super::prelude::{Model, RenderModel};
+use super::prelude::Model;
 use generational_arena::{Arena, Index as ArenaIndex};
 use nalgebra::Vector2;
 use std::collections::{HashMap, HashSet};
-struct GuiContainer {
-    elements: Arena<Box<dyn GuiElement>>,
+use std::marker::Sized;
+struct GuiContainer<RenderModel> {
+    elements: Arena<Box<dyn GuiElement<RenderModel>>>,
+    render_models: Arena<Option<RenderModel>>,
     /// points to index of parent in world arena
     parent_index: ArenaIndex,
 }
-struct RenderGuiContainer {
-    parent: RenderModel,
-    children: Vec<RenderModel>,
-}
-impl GuiContainer {
+impl<RenderModel: Sized> GuiContainer<RenderModel> {
     fn get_screen_collider(&self) -> Vec<Triangle> {
         todo!()
     }
@@ -41,7 +39,7 @@ enum Event {
 }
 //wheter or not to update gui
 #[derive(Clone, Debug)]
-enum Message {
+pub enum Message {
     /// Clicked on Mesh
     ClickedOn,
 }
@@ -50,7 +48,7 @@ enum StateChange {
     UpdateGui,
     DeleteParent,
 }
-trait GuiElement {
+trait GuiElement<RenderModel> {
     fn get_box(&self) -> BoundingBox;
     /// Recieves events from the runtime. Includes thing like click events. If the state is changed get model will be called.
     fn process_event(&self, event: Event) -> (StateChange, Vec<Message>);
@@ -59,16 +57,16 @@ trait GuiElement {
     /// Gets collider triangle in screen coordinates
     fn get_screen_collider(&self) -> Vec<Triangle>;
 }
-enum GetGuiOutput {
+pub enum GetGuiOutput<RenderModel> {
     //Spawn a container. If one already exists replace existing gui with current container
-    Contianer(GuiContainer),
+    Contianer(GuiContainer<RenderModel>),
     //do not change Container
     NoChange,
     //No gui to be emmitted. If one exists delete the gui
     None,
 }
 
-struct Triangle {
+pub struct Triangle {
     points: [Vector2<f32>; 3],
 }
 impl Triangle {
@@ -77,14 +75,14 @@ impl Triangle {
     }
 }
 //represents an object that may own a container
-trait GuiParent {
-    fn get_gui(&self) -> GetGuiOutput;
+pub trait GuiParent<RenderModel> {
+    fn get_gui(&self) -> GetGuiOutput<RenderModel>;
     fn process_message(&mut self, message: &Message);
     /// Gets collider triangle in screen coordinates
     fn get_screen_collider(&self) -> Vec<Triangle>;
 }
-struct GuiState {
-    containers: HashMap<ArenaIndex, GuiContainer>,
+struct GuiState<RenderModel: Clone> {
+    containers: HashMap<ArenaIndex, GuiContainer<RenderModel>>,
 }
 /// What needs to get changed (tommorow)
 /// Add two new functions that look like
@@ -96,12 +94,12 @@ struct GuiState {
 /// //called after process event every frame. gets all models to be drawn.
 /// fn get_runtime_model(&self)->Vec<RuntimeModel>;
 /// ```
-impl GuiState {
+impl<RenderModel: Clone> GuiState<RenderModel> {
     #[allow(dead_code)]
     pub fn game_loop(
         &mut self,
         events: EventPacket,
-        objects: &mut Arena<Box<dyn GuiParent>>,
+        objects: &mut Arena<Box<dyn GuiParent<RenderModel>>>,
     ) -> HashMap<(ArenaIndex, ArenaIndex), Model> {
         //list of models to update
         let mut to_update = HashSet::new();
