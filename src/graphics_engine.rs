@@ -33,8 +33,8 @@ impl RGBATexture {
     }
 }
 pub trait GraphicsEngine: std::marker::Sized {
-    type RuntimeMesh;
-    type RuntimeTexture;
+    type RuntimeMesh: Clone;
+    type RuntimeTexture: Clone;
     type ErrorType;
     type Framebuffer;
     fn init() -> Result<Self, Self::ErrorType>;
@@ -63,11 +63,13 @@ pub struct WebGl {
     texture_sampler_location: Option<WebGlUniformLocation>,
     program: WebGlProgram,
 }
+#[derive(Clone)]
 pub struct WebGlMesh {
     vertex_array_object: Option<WebGlVertexArrayObject>,
     position_buffer: Option<WebGlBuffer>,
     count: i32,
 }
+#[derive(Clone)]
 pub struct WebGlRenderTexture {
     texture: Option<WebGlTexture>,
 }

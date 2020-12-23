@@ -1,4 +1,4 @@
-use super::prelude::Model;
+use super::prelude::{Camera, Event, Model, MouseClick};
 use generational_arena::{Arena, Index as ArenaIndex};
 use nalgebra::Vector2;
 use std::collections::{HashMap, HashSet};
@@ -11,30 +11,30 @@ struct GuiContainer<RenderModel> {
 }
 impl<RenderModel: Sized> GuiContainer<RenderModel> {
     fn get_screen_collider(&self) -> Vec<Triangle> {
-        todo!()
+        todo!("get_screen collider")
     }
     fn get_render_model(&self) -> Vec<RenderModel> {
-        todo!()
+        todo!("get render model")
     }
     // to call after state updates
     fn get_model(&mut self) -> HashMap<ArenaIndex, Model> {
-        todo!()
+        todo!("get model")
     }
     fn submit_model(&mut self, models: &HashMap<ArenaIndex, RenderModel>) {
-        todo!()
+        todo!("submit model")
     }
 }
 struct BoundingBox {}
-struct EventPacket {
-    mouse_position: Vector2<f32>,
-    events: Vec<Event>,
+pub struct EventPacket {
+    pub mouse_position: Vector2<f32>,
+    pub events: Vec<Event>,
 }
 #[derive(Clone)]
-struct MouseEvent {
-    mouse_position: Vector2<f32>,
+pub struct MouseEvent {
+    pub mouse_position: Vector2<f32>,
 }
 enum KeyboardKey {}
-enum Event {
+pub enum Event_dep {
     MouseEvent(MouseEvent),
 }
 //wheter or not to update gui
@@ -79,11 +79,12 @@ pub trait GuiParent<RenderModel> {
     fn get_gui(&self) -> GetGuiOutput<RenderModel>;
     fn process_message(&mut self, message: &Message);
     /// Gets collider triangle in screen coordinates
-    fn get_screen_collider(&self) -> Vec<Triangle>;
+    fn get_screen_collider(&self, camera: &Camera) -> Vec<Triangle>;
 }
-struct GuiState<RenderModel: Clone> {
+pub struct GuiState<RenderModel: Clone> {
     containers: HashMap<ArenaIndex, GuiContainer<RenderModel>>,
 }
+
 /// What needs to get changed (tommorow)
 /// Add two new functions that look like
 /// ```
@@ -95,11 +96,17 @@ struct GuiState<RenderModel: Clone> {
 /// fn get_runtime_model(&self)->Vec<RuntimeModel>;
 /// ```
 impl<RenderModel: Clone> GuiState<RenderModel> {
+    pub fn new() -> Self {
+        Self {
+            containers: HashMap::new(),
+        }
+    }
     #[allow(dead_code)]
-    pub fn game_loop(
+    pub fn game_loop<Parent: GuiParent<RenderModel>>(
         &mut self,
         events: EventPacket,
-        objects: &mut Arena<Box<dyn GuiParent<RenderModel>>>,
+        camera: &Camera,
+        objects: &mut Arena<Parent>,
     ) -> HashMap<(ArenaIndex, ArenaIndex), Model> {
         //list of models to update
         let mut to_update = HashSet::new();
@@ -107,11 +114,13 @@ impl<RenderModel: Clone> GuiState<RenderModel> {
         let mut update_gui = vec![];
         let mut messages = vec![];
         for event in events.events.iter() {
-            let (mut gui, mut msg) = match event {
-                Event::MouseEvent(m) => self.process_mouse_gui(m),
-            };
-            update_gui.append(&mut gui);
-            messages.append(&mut msg);
+            if let Some((mut gui, mut msg)) = match event {
+                Event::MouseClick(m) => Some(self.process_mouse_gui(m)),
+                _ => None,
+            } {
+                update_gui.append(&mut gui);
+                messages.append(&mut msg);
+            }
         }
 
         //2. Update gui boxes with specific keys marked by update
@@ -135,7 +144,7 @@ impl<RenderModel: Clone> GuiState<RenderModel> {
         }
         //3. send on click
         for (index, object) in objects.iter() {
-            for triangle in object.get_screen_collider() {
+            for triangle in object.get_screen_collider(camera) {
                 if triangle.intersects(&events.mouse_position) {
                     messages.push((index, Message::ClickedOn));
                 }
@@ -205,7 +214,7 @@ impl<RenderModel: Clone> GuiState<RenderModel> {
     /// that need updating. Second is a vector of (Index of Gameobjects to Send message to, Message to send)
     fn process_mouse_gui(
         &mut self,
-        mouse: &MouseEvent,
+        mouse: &MouseClick,
     ) -> (
         Vec<(StateChange, ArenaIndex, ArenaIndex)>,
         Vec<(ArenaIndex, Message)>,
@@ -216,18 +225,18 @@ impl<RenderModel: Clone> GuiState<RenderModel> {
             if container
                 .get_screen_collider()
                 .iter()
-                .map(|t| t.intersects(&mouse.mouse_position))
+                .map(|t| t.intersects(&mouse.position))
                 .fold(false, |acc, x| acc | x)
             {
                 for (child_index, element) in container.elements.iter() {
                     if element
                         .get_screen_collider()
                         .iter()
-                        .map(|t| t.intersects(&mouse.mouse_position))
+                        .map(|t| t.intersects(&mouse.position))
                         .fold(false, |acc, x| acc | x)
                     {
                         let (state_change, messages) =
-                            element.process_event(Event::MouseEvent(mouse.clone()));
+                            element.process_event(Event::MouseClick(mouse.clone()));
                         update_events.push((state_change, parent_index.clone(), child_index));
                         for msg in messages.iter() {
                             update_mesages.push((container.parent_index, msg.clone()));
